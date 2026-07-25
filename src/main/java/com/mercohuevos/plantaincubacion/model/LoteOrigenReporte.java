@@ -37,8 +37,8 @@ public class LoteOrigenReporte {
     private String lineaGeneticaNombre;
 
     @Column(name = "huevos_incubables_guia", nullable = false)
-    private Integer huevosIncubablesGuia;   // suma A+B+C tal cual vino del evento
+    private Integer huevosIncubablesGuia;
 
     @Column(name = "huevos_comercial_guia", nullable = false)
-    private Integer huevosComercialGuia;    // suma COMERCIAL+DY tal cual vino del evento
+    private Integer huevosComercialGuia;
 }

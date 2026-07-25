@@ -10,8 +10,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
+import com.mercohuevos.common.dto.ConteoTipoHuevoEventDTO;
+import com.mercohuevos.common.dto.DetalleLoteEventDTO;
+import com.mercohuevos.common.dto.ReporteTrasladoEventDTO;
+import com.mercohuevos.common.event.ReporteTrasladoCreadoEvent;
 import com.mercohuevos.granja.dto.*;
 import com.mercohuevos.granja.enums.EstadoReporte;
 import com.mercohuevos.granja.mapper.IDetalleLoteReporteMapper;
@@ -32,6 +37,7 @@ public class ReporteTrasladoImpl implements IReporteTrasladoService {
     private final IRegistroMortalidadRepository mortalidadRepo;
     private final IReporteTrasladoMapper reporteMapper;
     private final IDetalleLoteReporteMapper detalleMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public ReporteTrasladoResponseDTO crear(ReporteTrasladoRequestDTO request) {
@@ -45,7 +51,7 @@ public class ReporteTrasladoImpl implements IReporteTrasladoService {
 
         ReporteTraslado reporte = new ReporteTraslado();
         reporte.setFecha(fechaReporte);
-        reporte.setHora(request.hora());
+        reporte.setHoraSalida(request.horaSalida());
         reporte.setChofer(request.chofer());
         reporte.setPlaca(request.placa());
         reporte.setEncargadoGranja(request.encargadoGranja());
@@ -66,6 +72,8 @@ public class ReporteTrasladoImpl implements IReporteTrasladoService {
         reporte.setDetalles(detalles);
 
         ReporteTraslado guardado = reporteRepo.save(reporte);
+        publicarEvento(guardado);
+
         return construirResponseCompleto(guardado);
     }
 
@@ -100,7 +108,7 @@ public class ReporteTrasladoImpl implements IReporteTrasladoService {
         validarFechaNoRepetida(fechaReporte, id);
 
         reporte.setFecha(fechaReporte);
-        reporte.setHora(request.hora());
+        reporte.setHoraSalida(request.horaSalida());
         reporte.setChofer(request.chofer());
         reporte.setPlaca(request.placa());
         reporte.setEncargadoGranja(request.encargadoGranja());
@@ -259,7 +267,8 @@ public class ReporteTrasladoImpl implements IReporteTrasladoService {
         ResumenReporteDTO resumen = construirResumen(entity.getDetalles());
 
         return new ReporteTrasladoResponseDTO(
-                dto.idReporte(), dto.numeroReporte(), dto.fecha(), dto.hora(),
+                dto.idReporte(), dto.numeroReporte(), dto.fecha(),
+                dto.horaSalida(), dto.horaLlegada(),
                 dto.chofer(), dto.placa(), dto.encargadoGranja(),
                 dto.veterinarioResponsable(), dto.observaciones(), dto.estado(),
                 detallesEnriquecidos, resumen
@@ -303,5 +312,38 @@ public class ReporteTrasladoImpl implements IReporteTrasladoService {
         int totalAves = detalles.stream().mapToInt(DetalleLoteReporte::getCantidadAvesActual).sum();
 
         return new ResumenReporteDTO(detalles.size(), totalAves, totalHuevos, porLinea);
+    }
+
+    private void publicarEvento(ReporteTraslado reporte) {
+        List<DetalleLoteEventDTO> detallesEvento = reporte.getDetalles().stream()
+                .map(this::construirDetalleEvento)
+                .toList();
+
+        ReporteTrasladoEventDTO eventoDTO = new ReporteTrasladoEventDTO(
+                reporte.getIdReporte(),
+                reporte.getNumeroReporte(),
+                reporte.getFecha(),
+                reporte.getHoraSalida(),
+                reporte.getChofer(),
+                reporte.getPlaca(),
+                reporte.getEncargadoGranja(),
+                reporte.getVeterinarioResponsable(),
+                reporte.getObservaciones(),
+                detallesEvento
+        );
+
+        eventPublisher.publishEvent(new ReporteTrasladoCreadoEvent(eventoDTO));
+    }
+
+    private DetalleLoteEventDTO construirDetalleEvento(DetalleLoteReporte detalle) {
+        List<ConteoTipoHuevoEventDTO> conteosEvento = detalle.getConteos().stream()
+                .map(c -> new ConteoTipoHuevoEventDTO(c.getTipoHuevo().getCodigo(), c.getCantidad()))
+                .toList();
+
+        return new DetalleLoteEventDTO(
+                detalle.getLote().getCodigoLote(),
+                detalle.getLote().getLineaGenetica().getNombreGen(),
+                conteosEvento
+        );
     }
 }

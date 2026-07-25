@@ -13,8 +13,8 @@ public record ReporteTrasladoRequestDTO(
 
         LocalDate fecha,          // opcional: se autocompleta con hoy
 
-        @NotNull(message = "La hora es obligatoria")
-        LocalTime hora,
+        @NotNull(message = "La hora de salida es obligatoria")
+        LocalTime horaSalida,
 
         @NotBlank(message = "El chofer es obligatorio")
         String chofer,

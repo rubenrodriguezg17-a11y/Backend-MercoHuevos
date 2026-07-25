@@ -14,17 +14,17 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "conteo_embandejado_categoria")
+@Table(name = "conteo_categoria_embandejado")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class ConteoEmbandejadoCategoria {
+public class ConteoCategoriaEmbandejado {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_embandejado_categoria")
-    private Long idEmbandejadoCategoria;
+    @Column(name = "id_conteo")
+    private Long idConteo;
 
     @ManyToOne
     @JoinColumn(name = "id_embandejado", nullable = false)

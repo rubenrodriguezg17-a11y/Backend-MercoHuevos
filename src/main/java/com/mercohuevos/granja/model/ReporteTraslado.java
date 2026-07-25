@@ -37,9 +37,12 @@ public class ReporteTraslado {
     @Column(name = "fecha", nullable = false)
     private LocalDate fecha;
 
-    @Column(name = "hora", nullable = false)
-    private LocalTime hora;
+    @Column(name = "hora_salida", nullable = false)
+    private LocalTime horaSalida;
 
+    @Column(name = "hora_llegada")
+    private LocalTime horaLlegada;   
+    
     @Column(name = "chofer", nullable = false)
     private String chofer;
 

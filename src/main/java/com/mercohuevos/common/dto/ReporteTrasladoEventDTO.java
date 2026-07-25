@@ -1,21 +1,18 @@
-package com.mercohuevos.granja.dto;
+package com.mercohuevos.common.dto;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 
-public record ReporteTrasladoResponseDTO(
+public record ReporteTrasladoEventDTO(
         Long idReporte,
         String numeroReporte,
         LocalDate fecha,
         LocalTime horaSalida,
-        LocalTime horaLlegada,
         String chofer,
         String placa,
         String encargadoGranja,
         String veterinarioResponsable,
         String observaciones,
-        String estado,
-        List<DetalleLoteReporteResponseDTO> detalles,
-        ResumenReporteDTO resumen
+        List<DetalleLoteEventDTO> detalles
 ) {}

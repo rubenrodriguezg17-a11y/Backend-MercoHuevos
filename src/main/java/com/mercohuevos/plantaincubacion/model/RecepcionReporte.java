@@ -31,10 +31,10 @@ public class RecepcionReporte {
     private Long idRecepcion;
 
     @Column(name = "id_reporte_granja", nullable = false, unique = true)
-    private Long idReporteGranja;      // el idReporte que vino en el evento/JSON
+    private Long idReporteGranja;
 
     @Column(name = "numero_reporte_granja", nullable = false)
-    private String numeroReporteGranja; // "REP-2026-001", solo referencia
+    private String numeroReporteGranja;
 
     @Column(name = "fecha_reporte", nullable = false)
     private LocalDate fechaReporte;
