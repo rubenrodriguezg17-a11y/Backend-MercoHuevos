@@ -1,5 +1,7 @@
 package com.mercohuevos.plantaincubacion.controller;
 
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -26,5 +28,10 @@ public class CargaController {
     @GetMapping("/{id}")
     public ResponseEntity<CargaResponseDTO> obtenerPorId(@PathVariable Long id) {
         return ResponseEntity.ok(service.obtenerPorId(id));
+    }
+    
+    @GetMapping
+    public ResponseEntity<List<CargaResponseDTO>> listarTodos(){
+    	return ResponseEntity.ok(service.listarCargas());
     }
 }

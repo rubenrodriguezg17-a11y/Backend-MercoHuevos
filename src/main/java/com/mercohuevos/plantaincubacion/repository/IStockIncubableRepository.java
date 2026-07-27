@@ -1,6 +1,7 @@
 package com.mercohuevos.plantaincubacion.repository;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,4 +17,6 @@ public interface IStockIncubableRepository extends JpaRepository<StockIncubable,
 
     Optional<StockIncubable> findTopByFusionLoteAndCategoriaEmbandejadoAndFechaLessThanOrderByFechaDesc(
             FusionLote fusionLote, CategoriaEmbandejado categoria, LocalDate fecha);
+    
+    List<StockIncubable> findByFusionLote(FusionLote fusionLote);
 }

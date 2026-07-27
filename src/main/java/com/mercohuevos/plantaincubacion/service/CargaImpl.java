@@ -27,6 +27,7 @@ import com.mercohuevos.plantaincubacion.repository.IMaquinaRepository;
 import com.mercohuevos.plantaincubacion.repository.IStockIncubableRepository;
 
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -79,6 +80,7 @@ public class CargaImpl implements ICargaService {
     }
 
     @Override
+    @Transactional
     public CargaResponseDTO obtenerPorId(Long id) {
         Carga carga = buscarCarga(id);
         List<AsignacionCargaMaquina> asignaciones = asignacionRepo.findByCarga(carga);
@@ -180,4 +182,11 @@ public class CargaImpl implements ICargaService {
         return cargaRepo.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Carga no encontrada: " + id));
     }
+
+	@Override
+	public List<CargaResponseDTO> listarCargas() {
+		return cargaRepo.findAll().stream()
+				.map(carga -> construirResponseCompleto(carga, asignacionRepo.findByCarga(carga)))
+				.toList();
+	}
 }
