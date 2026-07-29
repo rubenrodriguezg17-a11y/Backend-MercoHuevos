@@ -2,6 +2,7 @@ package com.mercohuevos.plantaincubacion.service;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
@@ -9,18 +10,21 @@ import com.mercohuevos.plantaincubacion.dto.AsignacionMaquinaRequestDTO;
 import com.mercohuevos.plantaincubacion.dto.AsignacionMaquinaResponseDTO;
 import com.mercohuevos.plantaincubacion.dto.CargaRequestDTO;
 import com.mercohuevos.plantaincubacion.dto.CargaResponseDTO;
+import com.mercohuevos.plantaincubacion.dto.CategoriaCargaResponseDTO;
 import com.mercohuevos.plantaincubacion.enums.EstadoCarga;
 import com.mercohuevos.plantaincubacion.enums.FaseAsignacion;
 import com.mercohuevos.plantaincubacion.enums.TipoMaquina;
 import com.mercohuevos.plantaincubacion.mapper.IAsignacionCargaMaquinaMapper;
 import com.mercohuevos.plantaincubacion.model.AsignacionCargaMaquina;
 import com.mercohuevos.plantaincubacion.model.Carga;
+import com.mercohuevos.plantaincubacion.model.CategoriaCarga;
 import com.mercohuevos.plantaincubacion.model.CategoriaEmbandejado;
 import com.mercohuevos.plantaincubacion.model.FusionLote;
 import com.mercohuevos.plantaincubacion.model.Maquina;
 import com.mercohuevos.plantaincubacion.model.StockIncubable;
 import com.mercohuevos.plantaincubacion.repository.IAsignacionCargaMaquinaRepository;
 import com.mercohuevos.plantaincubacion.repository.ICargaRepository;
+import com.mercohuevos.plantaincubacion.repository.ICategoriaCargaRepository;
 import com.mercohuevos.plantaincubacion.repository.ICategoriaEmbandejadoRepository;
 import com.mercohuevos.plantaincubacion.repository.IFusionLoteRepository;
 import com.mercohuevos.plantaincubacion.repository.IMaquinaRepository;
@@ -37,6 +41,7 @@ public class CargaImpl implements ICargaService {
     private static final int CAPACIDAD_BANDEJA = 96;
 
     private final ICargaRepository cargaRepo;
+    private final ICategoriaCargaRepository categoriaCargaRepo;
     private final IAsignacionCargaMaquinaRepository asignacionRepo;
     private final IFusionLoteRepository fusionLoteRepo;
     private final ICategoriaEmbandejadoRepository categoriaRepo;
@@ -45,61 +50,94 @@ public class CargaImpl implements ICargaService {
     private final IAsignacionCargaMaquinaMapper asignacionMapper;
 
     @Override
+    @Transactional
     public CargaResponseDTO crear(CargaRequestDTO request) {
 
         FusionLote fusionLote = fusionLoteRepo.findById(request.idFusionLote())
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Fusion de lote no encontrada: " + request.idFusionLote()));
 
-        CategoriaEmbandejado categoria = categoriaRepo.findById(request.idCategoriaEmbandejado())
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Categoria de embandejado no encontrada: " + request.idCategoriaEmbandejado()));
+        record CategoriaValidada(CategoriaEmbandejado categoria, Integer cantidad, StockIncubable stock) {}
 
-        validarSumaAsignaciones(request);
-        StockIncubable stock = validarYObtenerStockDisponible(fusionLote, categoria, request.fechaCarga(), request.cantidadInicial());
-
-        Carga carga = new Carga();
-        carga.setFusionLote(fusionLote);
-        carga.setCategoriaEmbandejado(categoria);
-        carga.setCantidadInicial(request.cantidadInicial());
-        carga.setFechaCarga(request.fechaCarga());
-        carga.setFechaTransferenciaNacedora(request.fechaCarga().plusDays(18));
-        carga.setFechaNacimiento(request.fechaCarga().plusDays(21));
-        carga.setEstado(EstadoCarga.EN_INCUBACION);
-
-        Carga guardada = cargaRepo.save(carga);
-
-        List<AsignacionCargaMaquina> asignaciones = request.maquinas().stream()
-                .map(m -> construirAsignacion(m, guardada))
+        List<CategoriaValidada> categoriasValidadas = request.categoriasEmbandejado().stream()
+                .map(c -> {
+                    CategoriaEmbandejado categoria = categoriaRepo.findById(c.idCategoriaEmbandejado())
+                            .orElseThrow(() -> new EntityNotFoundException(
+                                    "Categoria de embandejado no encontrada: " + c.idCategoriaEmbandejado()));
+                    StockIncubable stock = validarYObtenerStockDisponible(
+                            fusionLote, categoria, request.fechaCarga(), c.cantidadInicial());
+                    return new CategoriaValidada(categoria, c.cantidadInicial(), stock);
+                })
                 .toList();
-        asignacionRepo.saveAll(asignaciones);
 
-        descontarStock(stock, request.cantidadInicial());
+        int totalNuevo = categoriasValidadas.stream()
+                .mapToInt(CategoriaValidada::cantidad)
+                .sum();
 
-        return construirResponseCompleto(guardada, asignaciones);
+        int sumaMaquinasNueva = request.maquinas().stream()
+                .mapToInt(AsignacionMaquinaRequestDTO::cantidad)
+                .sum();
+
+        if (sumaMaquinasNueva != totalNuevo) {
+            throw new IllegalArgumentException(
+                    "La suma de las cantidades asignadas a maquinas (" + sumaMaquinasNueva +
+                    ") debe ser igual a la suma de las categorias enviadas (" + totalNuevo + ")");
+        }
+
+        Optional<Carga> cargaExistente = cargaRepo.findByFusionLoteAndFechaCargaAndEstado(
+                fusionLote, request.fechaCarga(), EstadoCarga.EN_INCUBACION);
+
+        final Carga carga;
+        if (cargaExistente.isPresent()) {
+            Carga cExistente = cargaExistente.get();
+            cExistente.setCantidadInicial(cExistente.getCantidadInicial() + totalNuevo);
+            carga = cargaRepo.save(cExistente);
+        } else {
+            Carga cNueva = new Carga();
+            cNueva.setFusionLote(fusionLote);
+            cNueva.setCantidadInicial(totalNuevo);
+            cNueva.setFechaCarga(request.fechaCarga());
+            cNueva.setFechaTransferenciaNacedora(request.fechaCarga().plusDays(18));
+            cNueva.setFechaNacimiento(request.fechaCarga().plusDays(21));
+            cNueva.setEstado(EstadoCarga.EN_INCUBACION);
+            carga = cargaRepo.save(cNueva);
+        }
+
+        for (CategoriaValidada cv : categoriasValidadas) {
+            CategoriaCarga cc = categoriaCargaRepo.findByCargaAndCategoriaEmbandejado(carga, cv.categoria())
+                    .orElseGet(() -> {
+                        CategoriaCarga nueva = new CategoriaCarga();
+                        nueva.setCarga(carga);
+                        nueva.setCategoriaEmbandejado(cv.categoria());
+                        nueva.setCantidadInicial(0);
+                        return nueva;
+                    });
+            cc.setCantidadInicial(cc.getCantidadInicial() + cv.cantidad());
+            categoriaCargaRepo.save(cc);
+        }
+
+        for (AsignacionMaquinaRequestDTO asignacionReq : request.maquinas()) {
+            construirOAcumularAsignacion(asignacionReq, carga);
+        }
+
+        categoriasValidadas.forEach(cv -> descontarStock(cv.stock(), cv.cantidad()));
+
+        List<CategoriaCarga> categoriasCarga = categoriaCargaRepo.findByCarga(carga);
+        List<AsignacionCargaMaquina> asignaciones = asignacionRepo.findByCarga(carga);
+
+        return construirResponseCompleto(carga, categoriasCarga, asignaciones);
     }
 
     @Override
     @Transactional
     public CargaResponseDTO obtenerPorId(Long id) {
         Carga carga = buscarCarga(id);
+        List<CategoriaCarga> categoriasCarga = categoriaCargaRepo.findByCarga(carga);
         List<AsignacionCargaMaquina> asignaciones = asignacionRepo.findByCarga(carga);
-        return construirResponseCompleto(carga, asignaciones);
+        return construirResponseCompleto(carga, categoriasCarga, asignaciones);
     }
 
     // ---------------------- métodos privados de apoyo ----------------------
-
-    private void validarSumaAsignaciones(CargaRequestDTO request) {
-        int sumaAsignada = request.maquinas().stream()
-                .mapToInt(AsignacionMaquinaRequestDTO::cantidad)
-                .sum();
-
-        if (sumaAsignada != request.cantidadInicial()) {
-            throw new IllegalArgumentException(
-                    "La suma de las cantidades asignadas a maquinas (" + sumaAsignada +
-                    ") debe ser igual a la cantidad inicial de la carga (" + request.cantidadInicial() + ")");
-        }
-    }
 
     private StockIncubable validarYObtenerStockDisponible(
             FusionLote fusionLote, CategoriaEmbandejado categoria, LocalDate fecha, Integer cantidadSolicitada) {
@@ -108,12 +146,12 @@ public class CargaImpl implements ICargaService {
                 .findTopByFusionLoteAndCategoriaEmbandejadoAndFechaLessThanOrderByFechaDesc(
                         fusionLote, categoria, fecha.plusDays(1))
                 .orElseThrow(() -> new IllegalArgumentException(
-                        "No hay stock incubable registrado para este lote y categoria"));
+                        "No hay stock incubable registrado para la categoria " + categoria.getCodigo()));
 
         if (stock.getStockActual() < cantidadSolicitada) {
             throw new IllegalArgumentException(
-                    "Stock insuficiente. Disponible: " + stock.getStockActual() +
-                    ", solicitado: " + cantidadSolicitada);
+                    "Stock insuficiente en categoria " + categoria.getCodigo() +
+                    ". Disponible: " + stock.getStockActual() + ", solicitado: " + cantidadSolicitada);
         }
 
         return stock;
@@ -125,7 +163,7 @@ public class CargaImpl implements ICargaService {
         stockRepo.save(stock);
     }
 
-    private AsignacionCargaMaquina construirAsignacion(AsignacionMaquinaRequestDTO asignacionReq, Carga carga) {
+    private void construirOAcumularAsignacion(AsignacionMaquinaRequestDTO asignacionReq, Carga carga) {
 
         Maquina maquina = maquinaRepo.findById(asignacionReq.idMaquina())
                 .orElseThrow(() -> new EntityNotFoundException(
@@ -137,7 +175,8 @@ public class CargaImpl implements ICargaService {
         }
 
         int yaAsignado = asignacionRepo.sumAsignadoActivoPorMaquina(
-                maquina, FaseAsignacion.INCUBACION, EstadoCarga.FINALIZADA);        int disponible = maquina.getCapacidadMaxima() - yaAsignado;
+                maquina, FaseAsignacion.INCUBACION, EstadoCarga.FINALIZADA);
+        int disponible = maquina.getCapacidadMaxima() - yaAsignado;
 
         if (asignacionReq.cantidad() > disponible) {
             throw new IllegalArgumentException(
@@ -145,16 +184,28 @@ public class CargaImpl implements ICargaService {
                     ". Disponible: " + disponible + ", solicitado: " + asignacionReq.cantidad());
         }
 
-        AsignacionCargaMaquina asignacion = new AsignacionCargaMaquina();
-        asignacion.setCarga(carga);
-        asignacion.setMaquina(maquina);
-        asignacion.setFase(FaseAsignacion.INCUBACION);
-        asignacion.setCantidadAsignada(asignacionReq.cantidad());
+        AsignacionCargaMaquina asignacion = asignacionRepo
+                .findByCargaAndMaquinaAndFase(carga, maquina, FaseAsignacion.INCUBACION)
+                .orElseGet(() -> {
+                    AsignacionCargaMaquina nueva = new AsignacionCargaMaquina();
+                    nueva.setCarga(carga);
+                    nueva.setMaquina(maquina);
+                    nueva.setFase(FaseAsignacion.INCUBACION);
+                    nueva.setCantidadAsignada(0);
+                    return nueva;
+                });
 
-        return asignacion;
+        asignacion.setCantidadAsignada(asignacion.getCantidadAsignada() + asignacionReq.cantidad());
+        asignacionRepo.save(asignacion);
     }
 
-    private CargaResponseDTO construirResponseCompleto(Carga carga, List<AsignacionCargaMaquina> asignaciones) {
+    private CargaResponseDTO construirResponseCompleto(
+            Carga carga, List<CategoriaCarga> categoriasCarga, List<AsignacionCargaMaquina> asignaciones) {
+
+        List<CategoriaCargaResponseDTO> categoriasDTO = categoriasCarga.stream()
+                .map(cc -> new CategoriaCargaResponseDTO(
+                        cc.getCategoriaEmbandejado().getCodigo(), cc.getCantidadInicial()))
+                .toList();
 
         List<AsignacionMaquinaResponseDTO> asignacionesDTO = asignaciones.stream()
                 .map(asignacionMapper::toResponseDTO)
@@ -166,7 +217,7 @@ public class CargaImpl implements ICargaService {
         return new CargaResponseDTO(
                 carga.getIdCarga(),
                 carga.getFusionLote().getNombre(),
-                carga.getCategoriaEmbandejado().getCodigo(),
+                categoriasDTO,
                 carga.getCantidadInicial(),
                 bandejasCompletas,
                 residuo,
@@ -183,10 +234,11 @@ public class CargaImpl implements ICargaService {
                 .orElseThrow(() -> new EntityNotFoundException("Carga no encontrada: " + id));
     }
 
-	@Override
-	public List<CargaResponseDTO> listarCargas() {
-		return cargaRepo.findAll().stream()
-				.map(carga -> construirResponseCompleto(carga, asignacionRepo.findByCarga(carga)))
-				.toList();
-	}
+    @Override
+    public List<CargaResponseDTO> listarCargas() {
+        return cargaRepo.findAll().stream()
+                .map(carga -> construirResponseCompleto(
+                        carga, categoriaCargaRepo.findByCarga(carga), asignacionRepo.findByCarga(carga)))
+                .toList();
+    }
 }

@@ -36,12 +36,8 @@ public class Carga {
     @JoinColumn(name = "id_fusion_lote", nullable = false)
     private FusionLote fusionLote;
 
-    @ManyToOne
-    @JoinColumn(name = "id_categoria_embandejado", nullable = false)
-    private CategoriaEmbandejado categoriaEmbandejado;
-
     @Column(name = "cantidad_inicial", nullable = false)
-    private Integer cantidadInicial;
+    private Integer cantidadInicial;   // total: suma de todas las categorias de esta carga
 
     @Column(name = "fecha_carga", nullable = false)
     private LocalDate fechaCarga;

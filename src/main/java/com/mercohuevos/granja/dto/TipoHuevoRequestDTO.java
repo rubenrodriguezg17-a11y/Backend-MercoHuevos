@@ -1,6 +1,9 @@
 package com.mercohuevos.granja.dto;
 
+import com.mercohuevos.granja.enums.ClasificacionHuevo;
+
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 public record TipoHuevoRequestDTO(
 
@@ -10,5 +13,6 @@ public record TipoHuevoRequestDTO(
         @NotBlank(message = "La descripcion es obligatoria")
         String descripcion,
 
-        boolean esFertil   // primitivo, no puede ser null, no necesita validacion
+        @NotNull(message = "La clasificacion es obligatoria")
+        ClasificacionHuevo clasificacion
 ) {}

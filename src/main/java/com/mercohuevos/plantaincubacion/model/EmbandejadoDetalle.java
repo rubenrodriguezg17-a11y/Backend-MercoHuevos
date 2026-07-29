@@ -16,7 +16,7 @@ import lombok.Setter;
 
 @Entity
 @Table(name = "embandejado_detalle",
-       uniqueConstraints = @UniqueConstraint(columnNames = {"id_recepcion", "codigo_lote_granja"}))
+		uniqueConstraints = @UniqueConstraint(columnNames = {"id_recepcion", "id_fusion_lote"}))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -33,7 +33,7 @@ public class EmbandejadoDetalle {
     private RecepcionReporte recepcion;
 
     @ManyToOne
-    @JoinColumn(name = "id_fusion_lote")
+    @JoinColumn(name = "id_fusion_lote", nullable = false)
     private FusionLote fusionLote;
 
     @Column(name = "codigo_lote_granja", nullable = false)

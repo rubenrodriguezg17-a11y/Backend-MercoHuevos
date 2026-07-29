@@ -18,6 +18,7 @@ import com.mercohuevos.common.dto.DetalleLoteEventDTO;
 import com.mercohuevos.common.dto.ReporteTrasladoEventDTO;
 import com.mercohuevos.common.event.ReporteTrasladoCreadoEvent;
 import com.mercohuevos.granja.dto.*;
+import com.mercohuevos.granja.enums.ClasificacionHuevo;
 import com.mercohuevos.granja.enums.EstadoReporte;
 import com.mercohuevos.granja.mapper.IDetalleLoteReporteMapper;
 import com.mercohuevos.granja.mapper.IReporteTrasladoMapper;
@@ -337,6 +338,7 @@ public class ReporteTrasladoImpl implements IReporteTrasladoService {
 
     private DetalleLoteEventDTO construirDetalleEvento(DetalleLoteReporte detalle) {
         List<ConteoTipoHuevoEventDTO> conteosEvento = detalle.getConteos().stream()
+        		.filter(c -> c.getTipoHuevo().getClasificacion() != ClasificacionHuevo.DESCARTE)
                 .map(c -> new ConteoTipoHuevoEventDTO(c.getTipoHuevo().getCodigo(), c.getCantidad()))
                 .toList();
 

@@ -18,6 +18,7 @@ import com.mercohuevos.plantaincubacion.model.EmbandejadoDetalle;
 import com.mercohuevos.plantaincubacion.model.FusionLote;
 import com.mercohuevos.plantaincubacion.model.FusionLoteMiembro;
 import com.mercohuevos.plantaincubacion.model.LoteOrigenReporte;
+import com.mercohuevos.plantaincubacion.model.RecepcionReporte;
 import com.mercohuevos.plantaincubacion.model.StockIncubable;
 import com.mercohuevos.plantaincubacion.repository.ICategoriaEmbandejadoRepository;
 import com.mercohuevos.plantaincubacion.repository.IConsumoHuevoRepository;
@@ -35,184 +36,171 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class EmbandejadoDetalleImpl implements IEmbandejadoDetalleService {
 
-    private final IEmbandejadoDetalleRepository embandejadoRepo;
-    private final IConteoCategoriaEmbandejadoRepository conteoRepo;
-    private final ILoteOrigenReporteRepository loteOrigenRepo;
-    private final IFusionLoteRepository fusionLoteRepo;
-    private final IFusionLoteMiembroRepository fusionMiembroRepo;
-    private final ICategoriaEmbandejadoRepository categoriaRepo;
-    private final IStockIncubableRepository stockRepo;
-    private final IConsumoHuevoRepository consumoRepo;
-    private final IConteoCategoriaEmbandejadoMapper conteoMapper;
+	private final IEmbandejadoDetalleRepository embandejadoRepo;
+	private final IConteoCategoriaEmbandejadoRepository conteoRepo;
+	private final ILoteOrigenReporteRepository loteOrigenRepo;
+	private final IFusionLoteRepository fusionLoteRepo;
+	private final IFusionLoteMiembroRepository fusionMiembroRepo;
+	private final ICategoriaEmbandejadoRepository categoriaRepo;
+	private final IStockIncubableRepository stockRepo;
+	private final IConsumoHuevoRepository consumoRepo;
+	private final IConteoCategoriaEmbandejadoMapper conteoMapper;
 
-    @Override
-    public EmbandejadoDetalleResponseDTO registrar(EmbandejadoDetalleRequestDTO request) {
+	@Override
+	public EmbandejadoDetalleResponseDTO registrar(EmbandejadoDetalleRequestDTO request) {
 
-        LoteOrigenReporte loteOrigen = loteOrigenRepo.findByCodigoLoteGranja(request.codigoLoteGranja())
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "No se encontro informacion de granja para el lote: " + request.codigoLoteGranja()));
+		FusionLote fusionLote = fusionLoteRepo.findById(request.idFusionLote()).orElseThrow(
+				() -> new EntityNotFoundException("Fusion de lote no encontrada: " + request.idFusionLote()));
 
-        if (embandejadoRepo.findByCodigoLoteGranja(request.codigoLoteGranja()).isPresent()) {
-            throw new IllegalStateException(
-                    "El lote " + request.codigoLoteGranja() + " ya fue embandejado anteriormente");
-        }
+		List<String> codigosLote = fusionMiembroRepo.findByFusionLote(fusionLote).stream()
+				.map(FusionLoteMiembro::getCodigoLoteGranja).toList();
 
-        FusionLote fusionLote = resolverFusionLote(loteOrigen);
+		LocalDate hoy = LocalDate.now();
 
-        EmbandejadoDetalle detalle = new EmbandejadoDetalle();
-        detalle.setRecepcion(loteOrigen.getRecepcion());
-        detalle.setFusionLote(fusionLote);
-        detalle.setCodigoLoteGranja(loteOrigen.getCodigoLoteGranja());
-        detalle.setHuevosIncubablesGuia(loteOrigen.getHuevosIncubablesGuia());
-        detalle.setHuevosComercialGuia(loteOrigen.getHuevosComercialGuia());
-        detalle.setRotosTransporte(request.rotosTransporte());
-        detalle.setRotosEmbandejado(request.rotosEmbandejado());
-        detalle.setSeleccionDescartada(request.seleccionDescartada());
-        detalle.setObservaciones(request.observaciones());
+		List<LoteOrigenReporte> lotesOrigen = loteOrigenRepo
+				.findByCodigoLoteGranjaInAndRecepcion_FechaReporte(codigosLote, hoy);
 
-        EmbandejadoDetalle guardado = embandejadoRepo.save(detalle);
+		if (lotesOrigen.isEmpty()) {
+			throw new EntityNotFoundException(
+					"No se encontro un reporte de hoy (" + hoy + ") para la fusion: " + fusionLote.getNombre());
+		}
 
-        List<ConteoCategoriaEmbandejado> conteos = request.conteos().stream()
-                .map(c -> construirConteo(c, guardado))
-                .toList();
-        conteoRepo.saveAll(conteos);
+		RecepcionReporte recepcion = lotesOrigen.get(0).getRecepcion();
 
-        LocalDate fecha = loteOrigen.getRecepcion().getFechaReporte();
+		if (embandejadoRepo.existsByRecepcionAndFusionLote(recepcion, fusionLote)) {
+			throw new IllegalStateException(
+					"La fusion " + fusionLote.getNombre() + " ya fue embandejada para el reporte de hoy");
+		}
 
-        registrarConsumoAutomatico(fusionLote, fecha, request.seleccionDescartada(), loteOrigen.getHuevosComercialGuia());
-        actualizarStockIncubable(fusionLote, fecha, conteos);
+		int totalIncubable = lotesOrigen.stream().mapToInt(LoteOrigenReporte::getHuevosIncubablesGuia).sum();
 
-        return construirResponseCompleto(guardado, conteos);
-    }
+		int totalComercial = lotesOrigen.stream().mapToInt(LoteOrigenReporte::getHuevosComercialGuia).sum();
 
-    @Override
-    public EmbandejadoDetalleResponseDTO obtenerPorId(Long id) {
-        EmbandejadoDetalle detalle = embandejadoRepo.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Embandejado no encontrado: " + id));
+		EmbandejadoDetalle detalle = new EmbandejadoDetalle();
+		detalle.setRecepcion(recepcion);
+		detalle.setFusionLote(fusionLote);
+		detalle.setCodigoLoteGranja(fusionLote.getNombre());
+		detalle.setHuevosIncubablesGuia(totalIncubable);
+		detalle.setHuevosComercialGuia(totalComercial);
+		detalle.setRotosTransporte(request.rotosTransporte());
+		detalle.setRotosEmbandejado(request.rotosEmbandejado());
+		detalle.setSeleccionDescartada(request.seleccionDescartada());
+		detalle.setObservaciones(request.observaciones());
 
-        List<ConteoCategoriaEmbandejado> conteos = conteoRepo.findByEmbandejadoDetalle(detalle);
-        return construirResponseCompleto(detalle, conteos);
-    }
+		EmbandejadoDetalle guardado = embandejadoRepo.save(detalle);
 
-    // ---------------------- métodos privados de apoyo ----------------------
+		List<ConteoCategoriaEmbandejado> conteos = request.conteos().stream().map(c -> construirConteo(c, guardado))
+				.toList();
+		conteoRepo.saveAll(conteos);
 
-    private FusionLote resolverFusionLote(LoteOrigenReporte loteOrigen) {
-        String codigo = loteOrigen.getCodigoLoteGranja();
+		registrarConsumoAutomatico(fusionLote, hoy, request.seleccionDescartada(), totalComercial);
+		actualizarStockIncubable(fusionLote, hoy, conteos);
 
-        return fusionMiembroRepo.findByCodigoLoteGranja(codigo)
-                .map(FusionLoteMiembro::getFusionLote)
-                .orElseGet(() -> crearFusionTrivial(loteOrigen));
-    }
+		return construirResponseCompleto(guardado, conteos);
 
-    private FusionLote crearFusionTrivial(LoteOrigenReporte loteOrigen) {
-        FusionLote fusionLote = new FusionLote();
-        fusionLote.setNombre(loteOrigen.getCodigoLoteGranja());
-        fusionLote.setLineaGeneticaNombre(loteOrigen.getLineaGeneticaNombre());
-        fusionLote.setFechaCreacion(LocalDate.now());
-        fusionLote.setActivo(true);
+	}
 
-        FusionLote guardada = fusionLoteRepo.save(fusionLote);
+	@Override
+	public EmbandejadoDetalleResponseDTO obtenerPorId(Long id) {
+		EmbandejadoDetalle detalle = embandejadoRepo.findById(id)
+				.orElseThrow(() -> new EntityNotFoundException("Embandejado no encontrado: " + id));
 
-        FusionLoteMiembro miembro = new FusionLoteMiembro();
-        miembro.setFusionLote(guardada);
-        miembro.setCodigoLoteGranja(loteOrigen.getCodigoLoteGranja());
-        fusionMiembroRepo.save(miembro);
+		List<ConteoCategoriaEmbandejado> conteos = conteoRepo.findByEmbandejadoDetalle(detalle);
+		return construirResponseCompleto(detalle, conteos);
+	}
 
-        return guardada;
-    }
+	// ---------------------- métodos privados de apoyo ----------------------
 
-    private ConteoCategoriaEmbandejado construirConteo(
-            ConteoCategoriaEmbandejadoRequestDTO conteoReq, EmbandejadoDetalle detalle) {
+	private ConteoCategoriaEmbandejado construirConteo(ConteoCategoriaEmbandejadoRequestDTO conteoReq,
+			EmbandejadoDetalle detalle) {
 
-        CategoriaEmbandejado categoria = categoriaRepo.findById(conteoReq.idCategoriaEmbandejado())
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Categoria de embandejado no encontrada: " + conteoReq.idCategoriaEmbandejado()));
+		CategoriaEmbandejado categoria = categoriaRepo.findById(conteoReq.idCategoriaEmbandejado())
+				.orElseThrow(() -> new EntityNotFoundException(
+						"Categoria de embandejado no encontrada: " + conteoReq.idCategoriaEmbandejado()));
 
-        ConteoCategoriaEmbandejado conteo = new ConteoCategoriaEmbandejado();
-        conteo.setEmbandejadoDetalle(detalle);
-        conteo.setCategoriaEmbandejado(categoria);
-        conteo.setCantidad(conteoReq.cantidad());
-        return conteo;
-    }
+		ConteoCategoriaEmbandejado conteo = new ConteoCategoriaEmbandejado();
+		conteo.setEmbandejadoDetalle(detalle);
+		conteo.setCategoriaEmbandejado(categoria);
+		conteo.setCantidad(conteoReq.cantidad());
+		return conteo;
+	}
 
-    private void registrarConsumoAutomatico(
-            FusionLote fusionLote, LocalDate fecha, Integer seleccionDescartada, Integer huevosComercialGuia) {
+	private void registrarConsumoAutomatico(FusionLote fusionLote, LocalDate fecha, Integer seleccionDescartada,
+			Integer huevosComercialGuia) {
 
-        if (seleccionDescartada != null && seleccionDescartada > 0) {
-            guardarConsumo(fusionLote, fecha, OrigenConsumo.DESCARTE_SELECCION, seleccionDescartada,
-                    "Descarte automatico por seleccion en embandejado");
-        }
+		if (seleccionDescartada != null && seleccionDescartada > 0) {
+			guardarConsumo(fusionLote, fecha, OrigenConsumo.DESCARTE_SELECCION, seleccionDescartada,
+					"Descarte automatico por seleccion en embandejado");
+		}
 
-        if (huevosComercialGuia != null && huevosComercialGuia > 0) {
-            guardarConsumo(fusionLote, fecha, OrigenConsumo.COMERCIAL_GRANJA, huevosComercialGuia,
-                    "Huevo comercial recibido directo de granja");
-        }
-    }
+		if (huevosComercialGuia != null && huevosComercialGuia > 0) {
+			guardarConsumo(fusionLote, fecha, OrigenConsumo.COMERCIAL_GRANJA, huevosComercialGuia,
+					"Huevo comercial recibido directo de granja");
+		}
+	}
 
-    private void guardarConsumo(
-            FusionLote fusionLote, LocalDate fecha, OrigenConsumo origen, Integer cantidad, String observacion) {
+	private void guardarConsumo(FusionLote fusionLote, LocalDate fecha, OrigenConsumo origen, Integer cantidad,
+			String observacion) {
 
-        ConsumoHuevo consumo = new ConsumoHuevo();
-        consumo.setFusionLote(fusionLote);
-        consumo.setFecha(fecha);
-        consumo.setOrigen(origen);
-        consumo.setCantidad(cantidad);
-        consumo.setObservacion(observacion);
-        consumoRepo.save(consumo);
-    }
+		ConsumoHuevo consumo = new ConsumoHuevo();
+		consumo.setFusionLote(fusionLote);
+		consumo.setFecha(fecha);
+		consumo.setOrigen(origen);
+		consumo.setCantidad(cantidad);
+		consumo.setObservacion(observacion);
+		consumoRepo.save(consumo);
+	}
 
-    private void actualizarStockIncubable(
-            FusionLote fusionLote, LocalDate fecha, List<ConteoCategoriaEmbandejado> conteos) {
+	private void actualizarStockIncubable(FusionLote fusionLote, LocalDate fecha,
+			List<ConteoCategoriaEmbandejado> conteos) {
 
-        for (ConteoCategoriaEmbandejado conteo : conteos) {
-            CategoriaEmbandejado categoria = conteo.getCategoriaEmbandejado();
+		for (ConteoCategoriaEmbandejado conteo : conteos) {
+			CategoriaEmbandejado categoria = conteo.getCategoriaEmbandejado();
 
-            int stockAnterior = stockRepo
-                    .findTopByFusionLoteAndCategoriaEmbandejadoAndFechaLessThanOrderByFechaDesc(
-                            fusionLote, categoria, fecha)
-                    .map(StockIncubable::getStockActual)
-                    .orElse(0);
+			int stockAnterior = stockRepo
+					.findTopByFusionLoteAndCategoriaEmbandejadoAndFechaLessThanOrderByFechaDesc(fusionLote, categoria,
+							fecha)
+					.map(StockIncubable::getStockActual).orElse(0);
 
-            StockIncubable stock = stockRepo
-                    .findByFusionLoteAndCategoriaEmbandejadoAndFecha(fusionLote, categoria, fecha)
-                    .orElseGet(StockIncubable::new);
+			StockIncubable stock = stockRepo
+					.findByFusionLoteAndCategoriaEmbandejadoAndFecha(fusionLote, categoria, fecha)
+					.orElseGet(StockIncubable::new);
 
-            stock.setFusionLote(fusionLote);
-            stock.setCategoriaEmbandejado(categoria);
-            stock.setFecha(fecha);
-            stock.setStockDiaAnterior(stockAnterior);
-            stock.setEmbandejadoDia(conteo.getCantidad());
-            stock.setPasadoACarton(stock.getPasadoACarton() != null ? stock.getPasadoACarton() : 0);
-            stock.setCargaIncubadora(stock.getCargaIncubadora() != null ? stock.getCargaIncubadora() : 0);
-            stock.setStockActual(stockAnterior + conteo.getCantidad() - stock.getPasadoACarton() - stock.getCargaIncubadora());
+			stock.setFusionLote(fusionLote);
+			stock.setCategoriaEmbandejado(categoria);
+			stock.setFecha(fecha);
+			stock.setStockDiaAnterior(stockAnterior);
+			stock.setEmbandejadoDia(conteo.getCantidad());
+			stock.setPasadoACarton(stock.getPasadoACarton() != null ? stock.getPasadoACarton() : 0);
+			stock.setCargaIncubadora(stock.getCargaIncubadora() != null ? stock.getCargaIncubadora() : 0);
+			stock.setStockActual(
+					stockAnterior + conteo.getCantidad() - stock.getPasadoACarton() - stock.getCargaIncubadora());
 
-            stockRepo.save(stock);
-        }
-    }
+			stockRepo.save(stock);
+		}
+	}
 
-    private EmbandejadoDetalleResponseDTO construirResponseCompleto(
-            EmbandejadoDetalle detalle, List<ConteoCategoriaEmbandejado> conteos) {
+	private EmbandejadoDetalleResponseDTO construirResponseCompleto(EmbandejadoDetalle detalle,
+			List<ConteoCategoriaEmbandejado> conteos) {
 
-        List<ConteoCategoriaEmbandejadoResponseDTO> conteosDTO = conteos.stream()
-                .map(conteoMapper::toResponseDTO)
-                .toList();
+		List<ConteoCategoriaEmbandejadoResponseDTO> conteosDTO = conteos.stream().map(conteoMapper::toResponseDTO)
+				.toList();
 
-        int totalEmbandejado = conteos.stream()
-                .mapToInt(ConteoCategoriaEmbandejado::getCantidad)
-                .sum();
+		int totalEmbandejado = conteos.stream().mapToInt(ConteoCategoriaEmbandejado::getCantidad).sum();
 
-        return new EmbandejadoDetalleResponseDTO(
-                detalle.getIdEmbandejado(),
-                detalle.getCodigoLoteGranja(),
-                detalle.getFusionLote() != null ? detalle.getFusionLote().getNombre() : null,
-                detalle.getHuevosIncubablesGuia(),
-                detalle.getHuevosComercialGuia(),
-                detalle.getRotosTransporte(),
-                detalle.getRotosEmbandejado(),
-                detalle.getSeleccionDescartada(),
-                totalEmbandejado,
-                detalle.getObservaciones(),
-                conteosDTO
-        );
-    }
+		int rotos = (detalle.getRotosTransporte() != null ? detalle.getRotosTransporte() : 0)
+				+ (detalle.getRotosEmbandejado() != null ? detalle.getRotosEmbandejado() : 0);
+
+		int seleccion = detalle.getSeleccionDescartada() != null ? detalle.getSeleccionDescartada() : 0;
+
+		int totalDeclarado = totalEmbandejado + rotos + seleccion;
+
+		int diferenciaGuia = detalle.getHuevosIncubablesGuia() - totalDeclarado;
+
+		return new EmbandejadoDetalleResponseDTO(detalle.getIdEmbandejado(), detalle.getCodigoLoteGranja(),
+				detalle.getFusionLote() != null ? detalle.getFusionLote().getNombre() : null,
+				detalle.getHuevosIncubablesGuia(), detalle.getHuevosComercialGuia(), detalle.getRotosTransporte(),
+				detalle.getRotosEmbandejado(), detalle.getSeleccionDescartada(), totalEmbandejado,
+				detalle.getObservaciones(), conteosDTO, diferenciaGuia);
+	}
 }

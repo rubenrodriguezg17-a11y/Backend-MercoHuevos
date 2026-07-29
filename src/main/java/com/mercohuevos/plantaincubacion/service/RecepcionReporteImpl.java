@@ -20,6 +20,7 @@ import com.mercohuevos.plantaincubacion.repository.ILoteOrigenReporteRepository;
 import com.mercohuevos.plantaincubacion.repository.IRecepcionReporteRepository;
 
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -32,6 +33,7 @@ public class RecepcionReporteImpl implements IRecepcionReporteService {
     private final ApplicationEventPublisher eventPublisher;
 
     @Override
+    @Transactional
     public void procesarReporteRecibido(ReporteTrasladoEventDTO reporteEvento) {
 
         if (recepcionRepo.existsByIdReporteGranja(reporteEvento.idReporte())) {
@@ -46,10 +48,11 @@ public class RecepcionReporteImpl implements IRecepcionReporteService {
 
         RecepcionReporte guardada = recepcionRepo.save(recepcion);
 
-        for (DetalleLoteEventDTO detalle : reporteEvento.detalles()) {
-            LoteOrigenReporte loteOrigen = construirLoteOrigen(detalle, guardada);
-            loteOrigenRepo.save(loteOrigen);
-        }
+        List<LoteOrigenReporte> lotesOrigen = reporteEvento.detalles().stream()
+                .map(detalle -> construirLoteOrigen(detalle, guardada))
+                .toList();
+
+        loteOrigenRepo.saveAll(lotesOrigen);
     }
 
     @Override
@@ -65,6 +68,7 @@ public class RecepcionReporteImpl implements IRecepcionReporteService {
     }
 
     @Override
+    @Transactional
     public RecepcionReporteDTO confirmarRecepcion(Long id) {
         RecepcionReporte recepcion = buscarRecepcion(id);
 

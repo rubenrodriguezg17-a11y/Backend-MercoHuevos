@@ -13,5 +13,6 @@ public record EmbandejadoDetalleResponseDTO(
         Integer seleccionDescartada,
         Integer totalEmbandejado,
         String observaciones,
-        List<ConteoCategoriaEmbandejadoResponseDTO> conteos
+        List<ConteoCategoriaEmbandejadoResponseDTO> conteos,
+        Integer diferenciaGuia
 ) {}

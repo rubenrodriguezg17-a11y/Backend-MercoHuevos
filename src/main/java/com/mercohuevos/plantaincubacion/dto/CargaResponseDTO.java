@@ -6,7 +6,7 @@ import java.util.List;
 public record CargaResponseDTO(
         Long idCarga,
         String fusionLoteNombre,
-        String codigoCategoriaEmbandejado,
+        List<CategoriaCargaResponseDTO> categoriasEmbandejado,
         Integer cantidadInicial,
         Integer bandejasCompletas,
         Integer residuoUltimaBandeja,

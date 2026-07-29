@@ -1,7 +1,11 @@
 package com.mercohuevos.granja.model;
 
+import com.mercohuevos.granja.enums.ClasificacionHuevo;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -30,8 +34,9 @@ public class TipoHuevo {
     @Column(name = "descripcion", nullable = false)
     private String descripcion;
 
-    @Column(name = "es_fertil", nullable = false)
-    private boolean esFertil;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "clasificacion", nullable = false)
+    private ClasificacionHuevo clasificacion;
 
     @Column(name = "activo", nullable = false)
     private boolean activo = true;

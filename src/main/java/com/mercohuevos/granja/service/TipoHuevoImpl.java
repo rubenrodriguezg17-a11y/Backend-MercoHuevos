@@ -42,7 +42,7 @@ public class TipoHuevoImpl implements ITipoHuevoService {
         TipoHuevo entity = buscarActivo(id);
         entity.setCodigo(request.codigo());
         entity.setDescripcion(request.descripcion());
-        entity.setEsFertil(request.esFertil());
+        entity.setClasificacion(request.clasificacion());
         return mapper.toDTO(repository.save(entity));
     }
 
