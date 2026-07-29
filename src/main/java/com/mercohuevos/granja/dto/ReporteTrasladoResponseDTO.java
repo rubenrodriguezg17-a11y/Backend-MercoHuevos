@@ -16,6 +16,9 @@ public record ReporteTrasladoResponseDTO(
         String veterinarioResponsable,
         String observaciones,
         String estado,
-        List<DetalleLoteReporteResponseDTO> detalles,
-        ResumenReporteDTO resumen
+        Integer grandTotalLotes,
+        Integer grandTotalAvesActual,
+        Integer grandTotalMuertasDelDia,
+        Integer grandTotalHuevos,
+        List<LineaGeneticaResponseDTO> lineasGeneticas
 ) {}

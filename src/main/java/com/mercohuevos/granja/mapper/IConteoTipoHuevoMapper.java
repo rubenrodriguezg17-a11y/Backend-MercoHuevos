@@ -8,6 +8,7 @@ import com.mercohuevos.granja.model.ConteoTipoHuevo;
 @Mapper(componentModel = "spring")
 public interface IConteoTipoHuevoMapper {
 
+    @Mapping(source = "tipoHuevo.idTipoHuevo", target = "idTipoHuevo")
     @Mapping(source = "tipoHuevo.codigo", target = "codigoTipoHuevo")
     ConteoTipoHuevoResponseDTO toResponseDTO(ConteoTipoHuevo entity);
 }
