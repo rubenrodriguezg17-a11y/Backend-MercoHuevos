@@ -25,6 +25,12 @@ public class LoteOrigenReporte {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_lote_origen")
     private Long idLoteOrigen;
+    
+    @Column(name = "id_lote_granja", nullable = false)
+    private Long idLoteGranja;
+
+    @Column(name = "id_linea_genetica", nullable = false)
+    private Long idLineaGenetica;
 
     @ManyToOne
     @JoinColumn(name = "id_recepcion", nullable = false)

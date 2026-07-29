@@ -1,9 +1,11 @@
+// granja/service/ReporteTrasladoImpl.java
 package com.mercohuevos.granja.service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -42,7 +44,8 @@ public class ReporteTrasladoImpl implements IReporteTrasladoService {
 
 	@Override
 	public ReporteTrasladoResponseDTO crear(ReporteTrasladoRequestDTO request) {
-		validarLotesSinDuplicados(request.detalles());
+		List<LoteReporteRequestDTO> lotesAplanados = aplanarLotes(request.lineasGeneticas());
+		validarLotesSinDuplicados(lotesAplanados);
 		LocalDate fechaReporte = (request.fecha() != null) ? request.fecha() : LocalDate.now();
 		validarFechaEnRango(fechaReporte);
 		validarFechaNoRepetida(fechaReporte, null);
@@ -60,7 +63,7 @@ public class ReporteTrasladoImpl implements IReporteTrasladoService {
 				(request.numeroReporte() == null || request.numeroReporte().isBlank()) ? generarNumero()
 						: request.numeroReporte());
 
-		List<DetalleLoteReporte> detalles = request.detalles().stream()
+		List<DetalleLoteReporte> detalles = lotesAplanados.stream()
 				.map(detalleReq -> construirDetalle(detalleReq, fechaReporte, reporte)).toList();
 		reporte.setDetalles(detalles);
 
@@ -86,7 +89,8 @@ public class ReporteTrasladoImpl implements IReporteTrasladoService {
 			throw new IllegalStateException("El reporte no puede editarse porque su estado es " + reporte.getEstado()
 					+ ". Solo los reportes PENDIENTE son editables.");
 		}
-		validarLotesSinDuplicados(request.detalles());
+		List<LoteReporteRequestDTO> lotesAplanados = aplanarLotes(request.lineasGeneticas());
+		validarLotesSinDuplicados(lotesAplanados);
 		LocalDate fechaReporte = (request.fecha() != null) ? request.fecha() : reporte.getFecha();
 		validarFechaEnRango(fechaReporte);
 		validarFechaNoRepetida(fechaReporte, id);
@@ -102,7 +106,7 @@ public class ReporteTrasladoImpl implements IReporteTrasladoService {
 			reporte.setNumeroReporte(request.numeroReporte());
 		}
 
-		List<DetalleLoteReporte> nuevosDetalles = request.detalles().stream()
+		List<DetalleLoteReporte> nuevosDetalles = lotesAplanados.stream()
 				.map(detalleReq -> construirDetalle(detalleReq, fechaReporte, reporte)).toList();
 		reporte.getDetalles().clear();
 		reporte.getDetalles().addAll(nuevosDetalles);
@@ -127,7 +131,7 @@ public class ReporteTrasladoImpl implements IReporteTrasladoService {
 		return reporteRepo.findById(id).orElseThrow(() -> new EntityNotFoundException("Reporte no encontrado: " + id));
 	}
 
-	private DetalleLoteReporte construirDetalle(DetalleLoteReporteRequestDTO detalleReq, LocalDate fecha,
+	private DetalleLoteReporte construirDetalle(LoteReporteRequestDTO detalleReq, LocalDate fecha,
 			ReporteTraslado reporte) {
 		Lote lote = loteRepo.findById(detalleReq.idLote())
 				.orElseThrow(() -> new EntityNotFoundException("Lote no encontrado: " + detalleReq.idLote()));
@@ -175,12 +179,11 @@ public class ReporteTrasladoImpl implements IReporteTrasladoService {
 		return conteo;
 	}
 
-	private void validarLotesSinDuplicados(List<DetalleLoteReporteRequestDTO> detalles) {
+	private void validarLotesSinDuplicados(List<LoteReporteRequestDTO> lotes) {
 		Set<Long> idsVistos = new HashSet<>();
-		for (DetalleLoteReporteRequestDTO detalle : detalles) {
-			if (!idsVistos.add(detalle.idLote())) {
-				throw new IllegalArgumentException(
-						"El lote con id " + detalle.idLote() + " esta duplicado en el reporte");
+		for (LoteReporteRequestDTO lote : lotes) {
+			if (!idsVistos.add(lote.idLote())) {
+				throw new IllegalArgumentException("El lote con id " + lote.idLote() + " esta duplicado en el reporte");
 			}
 		}
 	}
@@ -207,6 +210,22 @@ public class ReporteTrasladoImpl implements IReporteTrasladoService {
 		return String.format("REP-%d-%03d", anio, correlativo);
 	}
 
+	private List<LoteReporteRequestDTO> aplanarLotes(List<LineaGeneticaReporteRequestDTO> lineasGeneticas) {
+		List<LoteReporteRequestDTO> resultado = new ArrayList<>();
+		for (LineaGeneticaReporteRequestDTO linea : lineasGeneticas) {
+			for (LoteReporteRequestDTO loteReq : linea.lotes()) {
+				Lote lote = loteRepo.findById(loteReq.idLote())
+						.orElseThrow(() -> new EntityNotFoundException("Lote no encontrado: " + loteReq.idLote()));
+				if (!lote.getLineaGenetica().getIdGen().equals(linea.idLineaGenetica())) {
+					throw new IllegalArgumentException(
+							"El lote " + loteReq.idLote() + " no pertenece a la linea genetica " + linea.idLineaGenetica());
+				}
+				resultado.add(loteReq);
+			}
+		}
+		return resultado;
+	}
+
 	// ---------------------- Centralización de Totales y Mapeo DTO ----------------------
 	private ReporteTrasladoResponseDTO construirResponseCompleto(ReporteTraslado entity) {
 		ReporteTrasladoResponseDTO baseDto = reporteMapper.toResponseDTO(entity);
@@ -215,11 +234,9 @@ public class ReporteTrasladoImpl implements IReporteTrasladoService {
 			return crearGranTotalResponse(baseDto, 0, 0, 0, 0, List.of());
 		}
 
-		// 1. Agrupar los detalles originales por la Línea Genética
 		Map<LineaGenetica, List<DetalleLoteReporte>> agrupadoPorGenetica = entity.getDetalles().stream()
 				.collect(Collectors.groupingBy(d -> d.getLote().getLineaGenetica()));
 
-		// 2. Mapear cada grupo a LineaGeneticaResponseDTO
 		List<LineaGeneticaResponseDTO> lineasGeneticasDTO = agrupadoPorGenetica.entrySet().stream()
 				.map(entry -> {
 					LineaGenetica genetica = entry.getKey();
@@ -254,7 +271,6 @@ public class ReporteTrasladoImpl implements IReporteTrasladoService {
 					);
 				}).toList();
 
-		// 3. Calcular Gran Totales globales consolidados del Reporte
 		int grandTotalLotes = entity.getDetalles().size();
 		int grandTotalAves = lineasGeneticasDTO.stream().mapToInt(LineaGeneticaResponseDTO::totalAvesActual).sum();
 		int grandTotalMuertas = lineasGeneticasDTO.stream().mapToInt(LineaGeneticaResponseDTO::totalMuertasDelDia).sum();
@@ -283,27 +299,27 @@ public class ReporteTrasladoImpl implements IReporteTrasladoService {
 
 	private ReporteTrasladoResponseDTO crearGranTotalResponse(
 			ReporteTrasladoResponseDTO base,
-			int lotes, 
-			int aves, 
-			int muertas, 
-			int huevos, 
+			int lotes,
+			int aves,
+			int muertas,
+			int huevos,
 			List<LineaGeneticaResponseDTO> lineas) {
 		return new ReporteTrasladoResponseDTO(
-				base.idReporte(), 
-				base.numeroReporte(), 
-				base.fecha(), 
+				base.idReporte(),
+				base.numeroReporte(),
+				base.fecha(),
 				base.horaSalida(),
-				base.horaLlegada(), 
-				base.chofer(), 
-				base.placa(), 
+				base.horaLlegada(),
+				base.chofer(),
+				base.placa(),
 				base.encargadoGranja(),
-				base.veterinarioResponsable(), 
-				base.observaciones(), 
+				base.veterinarioResponsable(),
+				base.observaciones(),
 				base.estado().toString(),
-				lotes, 
-				aves, 
-				muertas, 
-				huevos, 
+				lotes,
+				aves,
+				muertas,
+				huevos,
 				lineas
 		);
 	}
@@ -312,20 +328,20 @@ public class ReporteTrasladoImpl implements IReporteTrasladoService {
 		List<DetalleLoteEventDTO> detallesEvento = reporte.getDetalles().stream()
 				.map(this::construirDetalleEvento)
 				.toList();
-		
+
 		ReporteTrasladoEventDTO eventoDTO = new ReporteTrasladoEventDTO(
 				reporte.getIdReporte(),
-				reporte.getNumeroReporte(), 
-				reporte.getFecha(), 
-				reporte.getHoraSalida(), 
+				reporte.getNumeroReporte(),
+				reporte.getFecha(),
+				reporte.getHoraSalida(),
 				reporte.getChofer(),
-				reporte.getPlaca(), 
-				reporte.getEncargadoGranja(), 
+				reporte.getPlaca(),
+				reporte.getEncargadoGranja(),
 				reporte.getVeterinarioResponsable(),
-				reporte.getObservaciones(), 
+				reporte.getObservaciones(),
 				detallesEvento
 		);
-		
+
 		eventPublisher.publishEvent(new ReporteTrasladoCreadoEvent(eventoDTO));
 	}
 
@@ -334,10 +350,12 @@ public class ReporteTrasladoImpl implements IReporteTrasladoService {
 				.filter(c -> c.getTipoHuevo().getClasificacion() != ClasificacionHuevo.DESCARTE)
 				.map(c -> new ConteoTipoHuevoEventDTO(c.getTipoHuevo().getCodigo(), c.getCantidad()))
 				.toList();
-				
+
 		return new DetalleLoteEventDTO(
+				detalle.getLote().getIdLote(),
 				detalle.getLote().getCodigoLote(),
-				detalle.getLote().getLineaGenetica().getNombreGen(), 
+				detalle.getLote().getLineaGenetica().getIdGen(),
+				detalle.getLote().getLineaGenetica().getNombreGen(),
 				conteosEvento
 		);
 	}
