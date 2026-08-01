@@ -1,11 +1,10 @@
 package com.mercohuevos.plantaincubacion.controller;
 
 import java.util.List;
-
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.mercohuevos.plantaincubacion.dto.EditarFusionLoteRequestDTO;
 import com.mercohuevos.plantaincubacion.dto.FusionLoteDTO;
 import com.mercohuevos.plantaincubacion.dto.FusionLoteRequestDTO;
 import com.mercohuevos.plantaincubacion.service.IFusionLoteService;
@@ -14,30 +13,35 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/plantaincubacion/fusiones-lote")
+@RequestMapping("/api/plantaincubacion/fusiones")
 @RequiredArgsConstructor
 public class FusionLoteController {
 
-    private final IFusionLoteService service;
+    private final IFusionLoteService fusionLoteService;
 
     @PostMapping
     public ResponseEntity<FusionLoteDTO> crear(@Valid @RequestBody FusionLoteRequestDTO request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(service.crear(request));
+        return ResponseEntity.ok(fusionLoteService.crear(request));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<FusionLoteDTO> editar(@PathVariable Long id, @Valid @RequestBody EditarFusionLoteRequestDTO request) {
+        return ResponseEntity.ok(fusionLoteService.editar(id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> anular(@PathVariable Long id) {
+        fusionLoteService.anular(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/recepcion/{idRecepcion}")
+    public ResponseEntity<List<FusionLoteDTO>> listarPorRecepcion(@PathVariable Long idRecepcion) {
+        return ResponseEntity.ok(fusionLoteService.listarPorRecepcion(idRecepcion));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<FusionLoteDTO> obtenerPorId(@PathVariable Long id) {
-        return ResponseEntity.ok(service.obtenerPorId(id));
-    }
-
-    @GetMapping
-    public ResponseEntity<List<FusionLoteDTO>> listarTodos() {
-        return ResponseEntity.ok(service.listarTodos());
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
-        service.eliminar(id);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(fusionLoteService.obtenerPorId(id));
     }
 }

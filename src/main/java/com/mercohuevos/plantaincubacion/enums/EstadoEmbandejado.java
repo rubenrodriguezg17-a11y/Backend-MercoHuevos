@@ -1,7 +1,6 @@
 package com.mercohuevos.plantaincubacion.enums;
 
-public enum EstadoRecepcion {
+public enum EstadoEmbandejado {
     PENDIENTE,
-    RECIBIDO,
     PROCESADO
 }

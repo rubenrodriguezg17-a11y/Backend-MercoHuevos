@@ -146,11 +146,11 @@ public class CargaImpl implements ICargaService {
                 .findTopByFusionLoteAndCategoriaEmbandejadoAndFechaLessThanOrderByFechaDesc(
                         fusionLote, categoria, fecha.plusDays(1))
                 .orElseThrow(() -> new IllegalArgumentException(
-                        "No hay stock incubable registrado para la categoria " + categoria.getCodigo()));
+                        "No hay stock incubable registrado para la categoria " + categoria.getCodigoCategoria()));
 
         if (stock.getStockActual() < cantidadSolicitada) {
             throw new IllegalArgumentException(
-                    "Stock insuficiente en categoria " + categoria.getCodigo() +
+                    "Stock insuficiente en categoria " + categoria.getCodigoCategoria() +
                     ". Disponible: " + stock.getStockActual() + ", solicitado: " + cantidadSolicitada);
         }
 
@@ -204,7 +204,7 @@ public class CargaImpl implements ICargaService {
 
         List<CategoriaCargaResponseDTO> categoriasDTO = categoriasCarga.stream()
                 .map(cc -> new CategoriaCargaResponseDTO(
-                        cc.getCategoriaEmbandejado().getCodigo(), cc.getCantidadInicial()))
+                        cc.getCategoriaEmbandejado().getCodigoCategoria(), cc.getCantidadInicial()))
                 .toList();
 
         List<AsignacionMaquinaResponseDTO> asignacionesDTO = asignaciones.stream()
@@ -216,7 +216,7 @@ public class CargaImpl implements ICargaService {
 
         return new CargaResponseDTO(
                 carga.getIdCarga(),
-                carga.getFusionLote().getNombre(),
+                carga.getFusionLote().getCodigoFusion(),
                 categoriasDTO,
                 carga.getCantidadInicial(),
                 bandejasCompletas,

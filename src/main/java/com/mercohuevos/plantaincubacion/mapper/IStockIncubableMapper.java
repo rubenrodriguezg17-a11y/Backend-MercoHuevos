@@ -9,7 +9,7 @@ import com.mercohuevos.plantaincubacion.model.StockIncubable;
 @Mapper(componentModel = "spring")
 public interface IStockIncubableMapper {
 
-    @Mapping(source = "fusionLote.nombre", target = "fusionLoteNombre")
-    @Mapping(source = "categoriaEmbandejado.codigo", target = "categoriaEmbandejadoCodigo")
+    @Mapping(source = "fusionLote.codigoFusion", target = "fusionLoteNombre")
+    @Mapping(source = "categoriaEmbandejado.codigoCategoria", target = "categoriaEmbandejadoCodigo")
     StockIncubableDTO toDTO(StockIncubable entity);
 }

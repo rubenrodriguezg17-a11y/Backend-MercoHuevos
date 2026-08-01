@@ -36,7 +36,7 @@ public class ConsumoHuevoImpl implements IConsumoHuevoService {
 
         return repository.findByFusionLote(fusionLote).stream().map(mapper::toDTO).toList();
     }
-    
+
     @Override
     public ConsumoHuevoResumenDTO obtenerResumenPorFusionLote(Long idFusionLote) {
         FusionLote fusionLote = fusionLoteRepo.findById(idFusionLote)
@@ -50,7 +50,7 @@ public class ConsumoHuevoImpl implements IConsumoHuevoService {
         int totalGeneral = totalComercial + totalDescarte + totalCarton;
 
         return new ConsumoHuevoResumenDTO(
-                fusionLote.getNombre(), totalComercial, totalDescarte, totalCarton, totalGeneral
+                fusionLote.getCodigoFusion(), totalComercial, totalDescarte, totalCarton, totalGeneral
         );
     }
 

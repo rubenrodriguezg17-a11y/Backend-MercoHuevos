@@ -72,11 +72,12 @@ public class RecepcionReporteImpl implements IRecepcionReporteService {
 	public RecepcionReporteDTO confirmarRecepcion(Long id) {
 		RecepcionReporte recepcion = buscarRecepcion(id);
 
-		if (recepcion.getEstado() == EstadoRecepcion.PROCESADO) {
-			throw new IllegalStateException("Esta recepcion ya fue confirmada anteriormente");
+		if (recepcion.getEstado() == EstadoRecepcion.RECIBIDO || recepcion.getEstado() == EstadoRecepcion.PROCESADO) {
+		    throw new IllegalStateException("Esta recepcion ya fue confirmada anteriormente");
 		}
 
-		recepcion.setEstado(EstadoRecepcion.PROCESADO);
+		recepcion.setEstado(EstadoRecepcion.RECIBIDO);
+		
 		RecepcionReporte guardada = recepcionRepo.save(recepcion);
 
 		LocalTime horaLlegada = LocalTime.now();

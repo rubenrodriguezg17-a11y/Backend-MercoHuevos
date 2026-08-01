@@ -1,12 +1,11 @@
 package com.mercohuevos.plantaincubacion.repository;
 
 import java.util.List;
-
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.mercohuevos.plantaincubacion.model.ConteoCategoriaEmbandejado;
-import com.mercohuevos.plantaincubacion.model.EmbandejadoDetalle;
+import com.mercohuevos.plantaincubacion.model.EmbandejadoLoteFusion;
 
 public interface IConteoCategoriaEmbandejadoRepository extends JpaRepository<ConteoCategoriaEmbandejado, Long> {
-    List<ConteoCategoriaEmbandejado> findByEmbandejadoDetalle(EmbandejadoDetalle detalle);
+    List<ConteoCategoriaEmbandejado> findByEmbandejadoLoteFusion(EmbandejadoLoteFusion detalle);
 }

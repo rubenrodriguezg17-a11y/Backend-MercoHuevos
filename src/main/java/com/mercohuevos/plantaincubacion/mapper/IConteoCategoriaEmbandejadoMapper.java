@@ -9,6 +9,6 @@ import com.mercohuevos.plantaincubacion.model.ConteoCategoriaEmbandejado;
 @Mapper(componentModel = "spring")
 public interface IConteoCategoriaEmbandejadoMapper {
 
-    @Mapping(source = "categoriaEmbandejado.codigo", target = "codigoCategoria")
+    @Mapping(source = "categoriaEmbandejado.codigoCategoria", target = "codigoCategoria")
     ConteoCategoriaEmbandejadoResponseDTO toResponseDTO(ConteoCategoriaEmbandejado entity);
 }

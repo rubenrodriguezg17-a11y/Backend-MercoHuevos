@@ -68,7 +68,7 @@ public class RegistroNacimientoImpl implements IRegistroNacimientoService {
         return new RegistroNacimientoResponseDTO(
                 nacimiento.getIdNacimiento(),
                 nacimiento.getCarga().getIdCarga(),
-                nacimiento.getCarga().getFusionLote().getNombre(),
+                nacimiento.getCarga().getFusionLote().getCodigoFusion(),
                 nacimiento.getCantidadMachos(),
                 nacimiento.getCantidadHembras(),
                 nacimiento.getCantidadPrimera(),

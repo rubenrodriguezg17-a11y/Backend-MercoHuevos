@@ -40,8 +40,8 @@ public class CategoriaEmbandejadoImpl implements ICategoriaEmbandejadoService {
     @Override
     public CategoriaEmbandejadoDTO editar(Long id, CategoriaEmbandejadoRequestDTO request) {
         CategoriaEmbandejado entity = buscarActivo(id);
-        entity.setCodigo(request.codigo());
-        entity.setDescripcion(request.descripcion());
+        entity.setCodigoCategoria(request.codigo());
+        entity.setNombreCategoria(request.descripcion());
         return mapper.toDTO(repository.save(entity));
     }
 
@@ -56,7 +56,7 @@ public class CategoriaEmbandejadoImpl implements ICategoriaEmbandejadoService {
         CategoriaEmbandejado entity = repository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Categoria de embandejado no encontrada: " + id));
 
-        if (!entity.isActivo()) {
+        if (!entity.getActivo()) {
             throw new EntityNotFoundException("Categoria de embandejado no encontrada: " + id);
         }
         return entity;

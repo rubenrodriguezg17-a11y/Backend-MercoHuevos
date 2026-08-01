@@ -1,23 +1,16 @@
 package com.mercohuevos.plantaincubacion.service;
 
-import java.time.LocalDate;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
-import com.mercohuevos.plantaincubacion.dto.FusionLoteDTO;
-import com.mercohuevos.plantaincubacion.dto.FusionLoteRequestDTO;
-import com.mercohuevos.plantaincubacion.mapper.IFusionLoteMapper;
-import com.mercohuevos.plantaincubacion.model.FusionLote;
-import com.mercohuevos.plantaincubacion.model.FusionLoteMiembro;
-import com.mercohuevos.plantaincubacion.model.LoteOrigenReporte;
-import com.mercohuevos.plantaincubacion.repository.IFusionLoteMiembroRepository;
-import com.mercohuevos.plantaincubacion.repository.IFusionLoteRepository;
-import com.mercohuevos.plantaincubacion.repository.ILoteOrigenReporteRepository;
+import com.mercohuevos.plantaincubacion.dto.*;
+import com.mercohuevos.plantaincubacion.enums.EstadoRecepcion;
+import com.mercohuevos.plantaincubacion.model.*;
+import com.mercohuevos.plantaincubacion.repository.*;
 
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -25,99 +18,153 @@ import lombok.RequiredArgsConstructor;
 public class FusionLoteImpl implements IFusionLoteService {
 
     private final IFusionLoteRepository fusionLoteRepo;
-    private final IFusionLoteMiembroRepository miembroRepo;
+    private final IFusionLoteDetalleRepository fusionDetalleRepo;
     private final ILoteOrigenReporteRepository loteOrigenRepo;
-    private final IFusionLoteMapper mapper;
+    private final IRecepcionReporteRepository recepcionRepo;
 
     @Override
+    @Transactional
     public FusionLoteDTO crear(FusionLoteRequestDTO request) {
-
-        validarCodigosNoMapeados(request.codigosLoteGranja());
-
-        String lineaGenetica = validarYObtenerLineaGeneticaUnica(request.codigosLoteGranja());
+        RecepcionReporte recepcion = recepcionRepo.findById(request.idRecepcion())
+            .orElseThrow(() -> new EntityNotFoundException("Recepcion no encontrada: " + request.idRecepcion()));
+        validarRecepcionEditable(recepcion);
+        
+        if ( fusionLoteRepo.existsByCodigoFusion(request.nombreFusion())) {
+        	throw new IllegalArgumentException("Ya existe una fusion con el nombre: " + request.nombreFusion());
+        }
+        List<LoteOrigenReporte> lotesOrigen = cargarYValidarLotes(request.idsLoteOrigen(), recepcion, request.idLineaGenetica());
 
         FusionLote fusionLote = new FusionLote();
-        fusionLote.setNombre(request.nombre());
-        fusionLote.setLineaGeneticaNombre(lineaGenetica);
-        fusionLote.setFechaCreacion(LocalDate.now());
-        fusionLote.setActivo(true);
+        fusionLote.setRecepcion(recepcion);
+        fusionLote.setIdLineaGenetica(request.idLineaGenetica());
+        fusionLote.setLineaGeneticaNombre(lotesOrigen.get(0).getLineaGeneticaNombre());
+        fusionLote.setActiva(true);
+        fusionLote.setCodigoFusion(request.nombreFusion());
+        aplicarTotales(fusionLote, lotesOrigen);
 
         FusionLote guardada = fusionLoteRepo.save(fusionLote);
+        guardarDetalles(guardada, lotesOrigen);
 
-        for (String codigo : request.codigosLoteGranja()) {
-            FusionLoteMiembro miembro = new FusionLoteMiembro();
-            miembro.setFusionLote(guardada);
-            miembro.setCodigoLoteGranja(codigo);
-            miembroRepo.save(miembro);
+        return construirResponse(guardada, lotesOrigen);
+    }
+
+    @Override
+    @Transactional
+    public FusionLoteDTO editar(Long idFusionLote, EditarFusionLoteRequestDTO request) {
+        FusionLote fusionLote = buscarFusion(idFusionLote);
+        RecepcionReporte recepcion = fusionLote.getRecepcion();
+        validarRecepcionEditable(recepcion);
+        
+        if (!fusionLote.getCodigoFusion().equals(request.nombreFusion())
+        		&& fusionLoteRepo.existsByCodigoFusion(request.nombreFusion())) {
+        	throw new IllegalArgumentException("Ya existe uan fusion co el nombre: " + request.nombreFusion());
         }
 
-        return construirDTOCompleto(guardada);
+        fusionDetalleRepo.deleteByFusionLote(fusionLote);
+
+        List<LoteOrigenReporte> lotesOrigen = cargarYValidarLotes(request.idsLoteOrigen(), recepcion, fusionLote.getIdLineaGenetica());
+        fusionLote.setCodigoFusion(request.nombreFusion());
+        aplicarTotales(fusionLote, lotesOrigen);
+        FusionLote actualizada = fusionLoteRepo.save(fusionLote);
+        guardarDetalles(actualizada, lotesOrigen);
+
+        return construirResponse(actualizada, lotesOrigen);
     }
 
     @Override
-    public FusionLoteDTO obtenerPorId(Long id) {
-        return construirDTOCompleto(buscarFusionLote(id));
+    @Transactional
+    public void anular(Long idFusionLote) {
+        FusionLote fusionLote = buscarFusion(idFusionLote);
+        validarRecepcionEditable(fusionLote.getRecepcion());
+        fusionDetalleRepo.deleteByFusionLote(fusionLote);
+        fusionLote.setActiva(false);
+        fusionLoteRepo.save(fusionLote);
     }
 
     @Override
-    public List<FusionLoteDTO> listarTodos() {
-        return fusionLoteRepo.findAll().stream()
-                .map(this::construirDTOCompleto)
-                .toList();
+    public List<FusionLoteDTO> listarPorRecepcion(Long idRecepcion) {
+        RecepcionReporte recepcion = recepcionRepo.findById(idRecepcion)
+            .orElseThrow(() -> new EntityNotFoundException("Recepcion no encontrada: " + idRecepcion));
+        return fusionLoteRepo.findByRecepcionAndActivaTrue(recepcion).stream()
+            .map(f -> construirResponse(f, obtenerLotesOrigen(f)))
+            .toList();
     }
 
     @Override
-    public void eliminar(Long id) {
-        FusionLote fusionLote = buscarFusionLote(id);
-        List<FusionLoteMiembro> miembros = miembroRepo.findByFusionLote(fusionLote);
-        miembroRepo.deleteAll(miembros);
-        fusionLoteRepo.delete(fusionLote);
+    public FusionLoteDTO obtenerPorId(Long idFusionLote) {
+        FusionLote fusionLote = buscarFusion(idFusionLote);
+        return construirResponse(fusionLote, obtenerLotesOrigen(fusionLote));
     }
 
-    private void validarCodigosNoMapeados(List<String> codigos) {
-        for (String codigo : codigos) {
-            if (miembroRepo.existsByCodigoLoteGranja(codigo)) {
-                throw new IllegalArgumentException(
-                        "El lote " + codigo + " ya pertenece a otra fusion");
+    // ---------------------- Métodos privados de apoyo ----------------------
+    private FusionLote buscarFusion(Long id) {
+        return fusionLoteRepo.findById(id)
+            .orElseThrow(() -> new EntityNotFoundException("FusionLote no encontrado: " + id));
+    }
+
+    private void validarRecepcionEditable(RecepcionReporte recepcion) {
+        if (recepcion.getEstado() == EstadoRecepcion.PROCESADO) {
+            throw new IllegalStateException("No se pueden modificar fusiones: el embandejado de esta recepcion ya fue confirmado");
+        }
+    }
+
+    private List<LoteOrigenReporte> cargarYValidarLotes(List<Long> idsLoteOrigen, RecepcionReporte recepcion, Long idLineaGenetica) {
+        List<LoteOrigenReporte> lotesOrigen = idsLoteOrigen.stream()
+            .map(id -> loteOrigenRepo.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("LoteOrigenReporte no encontrado: " + id)))
+            .toList();
+
+        for (LoteOrigenReporte lote : lotesOrigen) {
+            if (!lote.getRecepcion().getIdRecepcion().equals(recepcion.getIdRecepcion())) {
+                throw new IllegalArgumentException("El lote " + lote.getIdLoteGranja() + " no pertenece a esta recepcion");
+            }
+            if (!lote.getIdLineaGenetica().equals(idLineaGenetica)) {
+                throw new IllegalArgumentException("El lote " + lote.getIdLoteGranja() + " no pertenece a la linea genetica " + idLineaGenetica);
+            }
+            if (fusionDetalleRepo.existsByLoteOrigenReporte(lote)) {
+                throw new IllegalArgumentException("El lote " + lote.getCodigoLoteGranja() + " ya pertenece a otra fusion activa");
             }
         }
+        return lotesOrigen;
     }
 
-    private String validarYObtenerLineaGeneticaUnica(List<String> codigos) {
-        List<LoteOrigenReporte> lotesOrigen = loteOrigenRepo.findByCodigoLoteGranjaIn(codigos);
-
-        if (lotesOrigen.size() != codigos.size()) {
-            throw new IllegalArgumentException(
-                    "Uno o mas codigos de lote no corresponden a ningun reporte recibido de granja");
-        }
-
-        Set<String> lineasDistintas = lotesOrigen.stream()
-                .map(LoteOrigenReporte::getLineaGeneticaNombre)
-                .collect(Collectors.toSet());
-
-        if (lineasDistintas.size() > 1) {
-            throw new IllegalArgumentException(
-                    "No se pueden fusionar lotes de distinta linea genetica: " + lineasDistintas);
-        }
-
-        return lineasDistintas.iterator().next();
+    private void aplicarTotales(FusionLote fusionLote, List<LoteOrigenReporte> lotesOrigen) {
+        int totalIncubable = lotesOrigen.stream().mapToInt(LoteOrigenReporte::getHuevosIncubablesGuia).sum();
+        int totalComercial = lotesOrigen.stream().mapToInt(LoteOrigenReporte::getHuevosComercialGuia).sum();
+        fusionLote.setHuevosIncubablesGuia(totalIncubable);
+        fusionLote.setHuevosComercialGuia(totalComercial);
     }
 
-    private FusionLoteDTO construirDTOCompleto(FusionLote fusionLote) {
-        FusionLoteDTO base = mapper.toDTO(fusionLote);
+    private void guardarDetalles(FusionLote fusionLote, List<LoteOrigenReporte> lotesOrigen) {
+        List<FusionLoteDetalle> detalles = lotesOrigen.stream().map(lote -> {
+            FusionLoteDetalle detalle = new FusionLoteDetalle();
+            detalle.setFusionLote(fusionLote);
+            detalle.setLoteOrigenReporte(lote);
+            return detalle;
+        }).toList();
+        fusionDetalleRepo.saveAll(detalles);
+    }
 
-        List<String> codigos = miembroRepo.findByFusionLote(fusionLote).stream()
-                .map(FusionLoteMiembro::getCodigoLoteGranja)
-                .toList();
+    private List<LoteOrigenReporte> obtenerLotesOrigen(FusionLote fusionLote) {
+        return fusionDetalleRepo.findByFusionLote(fusionLote).stream()
+            .map(FusionLoteDetalle::getLoteOrigenReporte)
+            .toList();
+    }
+
+    private FusionLoteDTO construirResponse(FusionLote fusionLote, List<LoteOrigenReporte> lotesOrigen) {
+        List<LoteOrigenSimpleDTO> lotesDTO = lotesOrigen.stream()
+            .map(l -> new LoteOrigenSimpleDTO(l.getIdLoteGranja(), l.getCodigoLoteGranja()))
+            .toList();
 
         return new FusionLoteDTO(
-                base.idFusionLote(), base.nombre(), base.lineaGeneticaNombre(),
-                base.fechaCreacion(), codigos
+            fusionLote.getIdFusionLote(),
+            fusionLote.getRecepcion().getIdRecepcion(),
+            fusionLote.getIdLineaGenetica(),
+            fusionLote.getLineaGeneticaNombre(),
+            fusionLote.getCodigoFusion(),
+            fusionLote.getHuevosIncubablesGuia(),
+            fusionLote.getHuevosComercialGuia(),
+            lotesDTO
         );
-    }
-
-    private FusionLote buscarFusionLote(Long id) {
-        return fusionLoteRepo.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Fusion de lote no encontrada: " + id));
     }
 }
