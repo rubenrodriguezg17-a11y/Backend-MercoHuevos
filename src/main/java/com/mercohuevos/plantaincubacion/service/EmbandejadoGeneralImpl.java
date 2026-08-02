@@ -1,6 +1,6 @@
 package com.mercohuevos.plantaincubacion.service;
 
-import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -21,10 +21,13 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class EmbandejadoGeneralImpl implements IEmbandejadoGeneralService {
 
+    private static final int TOLERANCIA_DIFERENCIA_GUIA = 1000;
+
     private final IEmbandejadoGeneralRepository embandejadoRepo;
     private final IRecepcionReporteRepository recepcionRepo;
     private final IFusionLoteRepository fusionLoteRepo;
     private final ICategoriaEmbandejadoRepository categoriaRepo;
+    private final StockIncubableMovimientoService stockMovimiento;
 
     @Override
     @Transactional
@@ -32,28 +35,33 @@ public class EmbandejadoGeneralImpl implements IEmbandejadoGeneralService {
         RecepcionReporte recepcion = recepcionRepo.findById(request.idRecepcion())
             .orElseThrow(() -> new EntityNotFoundException("Recepcion no encontrada: " + request.idRecepcion()));
 
+        if (recepcion.getEstado() == EstadoRecepcion.PENDIENTE) {
+            throw new IllegalStateException("La recepcion aun no fue confirmada como recibida");
+        }
+        if (recepcion.getEstado() == EstadoRecepcion.PROCESADO) {
+            throw new IllegalStateException("Esta recepcion ya fue procesada por completo, no se puede editar");
+        }
+
         EmbandejadoGeneral embandejado = embandejadoRepo.findByRecepcion(recepcion).orElseGet(() -> {
             EmbandejadoGeneral nuevo = new EmbandejadoGeneral();
             nuevo.setRecepcion(recepcion);
-            nuevo.setFechaEmbandejado(LocalDate.now());
+            nuevo.setFechaEmbandejado(recepcion.getFechaReporte());
             nuevo.setEstado(EstadoEmbandejado.PENDIENTE);
             return nuevo;
         });
 
         for (LineaGeneticaEmbandejadoRequestDTO linea : request.lineasGeneticas()) {
             for (LoteFusionadoEmbandejadoRequestDTO loteReq : linea.lotesFusionados()) {
-            	
-            	FusionLote fusionLote = fusionLoteRepo.findById(loteReq.idFusionLote())
-                        .orElseThrow(() -> new EntityNotFoundException("FusionLote no encontrado: " + loteReq.idFusionLote()));
-                    if (!fusionLote.getActiva()) {
-                        throw new IllegalArgumentException(
-                            "La fusion " + fusionLote.getCodigoFusion() + " esta anulada y no puede embandejarse. " +
-                            "Fue reemplazada por una fusion mayor.");
-                    }
-                    if (!fusionLote.getIdLineaGenetica().equals(linea.idLineaGenetica())) {
-                        throw new IllegalArgumentException(
-                            "El fusionLote " + loteReq.idFusionLote() + " no pertenece a la linea genetica " + linea.idLineaGenetica());
-                    }
+                FusionLote fusionLote = fusionLoteRepo.findById(loteReq.idFusionLote())
+                    .orElseThrow(() -> new EntityNotFoundException("FusionLote no encontrado: " + loteReq.idFusionLote()));
+                if (!fusionLote.getActiva()) {
+                    throw new IllegalArgumentException(
+                        "La fusion " + fusionLote.getCodigoFusion() + " esta anulada y no puede embandejarse");
+                }
+                if (!fusionLote.getIdLineaGenetica().equals(linea.idLineaGenetica())) {
+                    throw new IllegalArgumentException(
+                        "El fusionLote " + loteReq.idFusionLote() + " no pertenece a la linea genetica " + linea.idLineaGenetica());
+                }
 
                 EmbandejadoLoteFusion detalle = embandejado.getLotesFusionados().stream()
                     .filter(d -> d.getFusionLote().getIdFusionLote().equals(loteReq.idFusionLote()))
@@ -66,12 +74,32 @@ public class EmbandejadoGeneralImpl implements IEmbandejadoGeneralService {
                         return nuevoDetalle;
                     });
 
+                // guardamos las cantidades anteriores por categoria ANTES de pisar, para calcular el delta de stock
+                Map<Long, Integer> cantidadesAnteriores = detalle.getConteos().stream()
+                    .collect(Collectors.toMap(
+                        c -> c.getCategoriaEmbandejado().getIdCategoriaEmbandejado(),
+                        ConteoCategoriaEmbandejado::getCantidad));
+
                 detalle.setRotosTransporte(loteReq.rotosTransporte());
                 detalle.setRotosEmbandejado(loteReq.rotosEmbandejado());
                 detalle.setSeleccionDescartada(loteReq.seleccionDescartada());
                 detalle.setObservaciones(loteReq.observaciones());
 
+                int totalEmbandejadoNuevo = loteReq.conteos().stream()
+                    .mapToInt(ConteoCategoriaEmbandejadoRequestDTO::cantidad).sum();
+                int diferenciaGuia = fusionLote.getHuevosIncubablesGuia()
+                    - (loteReq.rotosTransporte() + loteReq.rotosEmbandejado() + loteReq.seleccionDescartada())
+                    - totalEmbandejadoNuevo;
+
+                if (Math.abs(diferenciaGuia) > TOLERANCIA_DIFERENCIA_GUIA) {
+                    throw new IllegalArgumentException(
+                        "La diferencia con la guia del lote " + fusionLote.getCodigoFusion() +
+                        " (" + diferenciaGuia + " huevos) supera el limite permitido de " +
+                        TOLERANCIA_DIFERENCIA_GUIA + ". Verificar el conteo con granja.");
+                }
+
                 detalle.getConteos().clear();
+                Map<Long, Integer> cantidadesNuevas = new HashMap<>();
                 for (ConteoCategoriaEmbandejadoRequestDTO conteoReq : loteReq.conteos()) {
                     CategoriaEmbandejado categoria = categoriaRepo.findById(conteoReq.idCategoriaEmbandejado())
                         .orElseThrow(() -> new EntityNotFoundException("Categoria no encontrada: " + conteoReq.idCategoriaEmbandejado()));
@@ -80,6 +108,29 @@ public class EmbandejadoGeneralImpl implements IEmbandejadoGeneralService {
                     conteo.setCategoriaEmbandejado(categoria);
                     conteo.setCantidad(conteoReq.cantidad());
                     detalle.getConteos().add(conteo);
+                    cantidadesNuevas.put(categoria.getIdCategoriaEmbandejado(), conteoReq.cantidad());
+
+                    // delta de stock: lo nuevo menos lo que ya estaba registrado para esta categoria
+                    int anterior = cantidadesAnteriores.getOrDefault(categoria.getIdCategoriaEmbandejado(), 0);
+                    int delta = conteoReq.cantidad() - anterior;
+                    if (delta != 0) {
+                        StockIncubable stockHoy = stockMovimiento.obtenerOCrearStockDeHoy(fusionLote, categoria);
+                        stockHoy.setEmbandejadoDia(stockHoy.getEmbandejadoDia() + delta);
+                        stockMovimiento.recalcularStockActual(stockHoy);
+                        stockMovimiento.guardar(stockHoy);
+                    }
+                }
+
+                // categorias que estaban antes y ya no vinieron en el request (se quitaron): delta negativo
+                for (Map.Entry<Long, Integer> anterior : cantidadesAnteriores.entrySet()) {
+                    if (!cantidadesNuevas.containsKey(anterior.getKey())) {
+                        CategoriaEmbandejado categoria = categoriaRepo.findById(anterior.getKey())
+                            .orElseThrow(() -> new EntityNotFoundException("Categoria no encontrada: " + anterior.getKey()));
+                        StockIncubable stockHoy = stockMovimiento.obtenerOCrearStockDeHoy(fusionLote, categoria);
+                        stockHoy.setEmbandejadoDia(stockHoy.getEmbandejadoDia() - anterior.getValue());
+                        stockMovimiento.recalcularStockActual(stockHoy);
+                        stockMovimiento.guardar(stockHoy);
+                    }
                 }
             }
         }
@@ -98,10 +149,23 @@ public class EmbandejadoGeneralImpl implements IEmbandejadoGeneralService {
             throw new IllegalStateException("Este embandejado ya fue confirmado anteriormente");
         }
 
+        RecepcionReporte recepcion = embandejado.getRecepcion();
+        List<FusionLote> fusionesActivas = fusionLoteRepo.findByRecepcionAndActivaTrue(recepcion);
+
+        List<String> faltantes = fusionesActivas.stream()
+            .filter(f -> embandejado.getLotesFusionados().stream()
+                .noneMatch(d -> d.getFusionLote().getIdFusionLote().equals(f.getIdFusionLote())))
+            .map(FusionLote::getCodigoFusion)
+            .toList();
+
+        if (!faltantes.isEmpty()) {
+            throw new IllegalStateException(
+                "Faltan por embandejar las siguientes fusiones: " + String.join(", ", faltantes));
+        }
+
         embandejado.setEstado(EstadoEmbandejado.PROCESADO);
         embandejadoRepo.save(embandejado);
 
-        RecepcionReporte recepcion = embandejado.getRecepcion();
         recepcion.setEstado(EstadoRecepcion.PROCESADO);
         recepcionRepo.save(recepcion);
 

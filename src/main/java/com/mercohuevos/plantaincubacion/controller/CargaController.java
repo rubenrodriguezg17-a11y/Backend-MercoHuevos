@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.mercohuevos.plantaincubacion.dto.CargaRequestDTO;
 import com.mercohuevos.plantaincubacion.dto.CargaResponseDTO;
+import com.mercohuevos.plantaincubacion.dto.CargaDetalleResponseDTO; // <-- Agregamos esta importación
 import com.mercohuevos.plantaincubacion.service.ICargaService;
 
 import jakarta.validation.Valid;
@@ -26,12 +27,12 @@ public class CargaController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<CargaResponseDTO> obtenerPorId(@PathVariable Long id) {
+    public ResponseEntity<CargaDetalleResponseDTO> obtenerPorId(@PathVariable Long id) {
         return ResponseEntity.ok(service.obtenerPorId(id));
     }
     
     @GetMapping
-    public ResponseEntity<List<CargaResponseDTO>> listarTodos(){
+    public ResponseEntity<List<CargaDetalleResponseDTO>> listarTodos(){
     	return ResponseEntity.ok(service.listarCargas());
     }
 }

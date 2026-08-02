@@ -10,5 +10,8 @@ public record CategoriaCargaRequestDTO(
 
         @NotNull(message = "La cantidad inicial es obligatoria")
         @Min(value = 1, message = "La cantidad debe ser mayor a 0")
-        Integer cantidadInicial
+        Integer cantidadCargada,
+        
+        @NotNull(message = "debes elegir una maquina")
+        Long idMaquina
 ) {}

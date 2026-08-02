@@ -1,34 +1,17 @@
 package com.mercohuevos.plantaincubacion.service;
 
-import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
-import com.mercohuevos.plantaincubacion.dto.AsignacionMaquinaRequestDTO;
-import com.mercohuevos.plantaincubacion.dto.AsignacionMaquinaResponseDTO;
-import com.mercohuevos.plantaincubacion.dto.CargaRequestDTO;
-import com.mercohuevos.plantaincubacion.dto.CargaResponseDTO;
-import com.mercohuevos.plantaincubacion.dto.CategoriaCargaResponseDTO;
+import com.mercohuevos.plantaincubacion.dto.*;
 import com.mercohuevos.plantaincubacion.enums.EstadoCarga;
 import com.mercohuevos.plantaincubacion.enums.FaseAsignacion;
 import com.mercohuevos.plantaincubacion.enums.TipoMaquina;
-import com.mercohuevos.plantaincubacion.mapper.IAsignacionCargaMaquinaMapper;
-import com.mercohuevos.plantaincubacion.model.AsignacionCargaMaquina;
-import com.mercohuevos.plantaincubacion.model.Carga;
-import com.mercohuevos.plantaincubacion.model.CategoriaCarga;
-import com.mercohuevos.plantaincubacion.model.CategoriaEmbandejado;
-import com.mercohuevos.plantaincubacion.model.FusionLote;
-import com.mercohuevos.plantaincubacion.model.Maquina;
-import com.mercohuevos.plantaincubacion.model.StockIncubable;
-import com.mercohuevos.plantaincubacion.repository.IAsignacionCargaMaquinaRepository;
-import com.mercohuevos.plantaincubacion.repository.ICargaRepository;
-import com.mercohuevos.plantaincubacion.repository.ICategoriaCargaRepository;
-import com.mercohuevos.plantaincubacion.repository.ICategoriaEmbandejadoRepository;
-import com.mercohuevos.plantaincubacion.repository.IFusionLoteRepository;
-import com.mercohuevos.plantaincubacion.repository.IMaquinaRepository;
-import com.mercohuevos.plantaincubacion.repository.IStockIncubableRepository;
+import com.mercohuevos.plantaincubacion.model.*;
+import com.mercohuevos.plantaincubacion.repository.*;
 
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
@@ -41,180 +24,204 @@ public class CargaImpl implements ICargaService {
     private static final int CAPACIDAD_BANDEJA = 96;
 
     private final ICargaRepository cargaRepo;
+    private final StockIncubableMovimientoService stockMovimiento;
     private final ICategoriaCargaRepository categoriaCargaRepo;
     private final IAsignacionCargaMaquinaRepository asignacionRepo;
     private final IFusionLoteRepository fusionLoteRepo;
     private final ICategoriaEmbandejadoRepository categoriaRepo;
     private final IMaquinaRepository maquinaRepo;
-    private final IStockIncubableRepository stockRepo;
-    private final IAsignacionCargaMaquinaMapper asignacionMapper;
 
     @Override
     @Transactional
     public CargaResponseDTO crear(CargaRequestDTO request) {
 
-        FusionLote fusionLote = fusionLoteRepo.findById(request.idFusionLote())
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Fusion de lote no encontrada: " + request.idFusionLote()));
+        List<LineaGeneticaCargaResponseDTO> lineasDTO = new ArrayList<>();
 
-        record CategoriaValidada(CategoriaEmbandejado categoria, Integer cantidad, StockIncubable stock) {}
+        for (LineaGeneticaCargaRequestDTO lineaReq : request.lineasGeneticas()) {
+            List<LoteFusionCargaResponseDTO> lotesDTO = new ArrayList<>();
 
-        List<CategoriaValidada> categoriasValidadas = request.categoriasEmbandejado().stream()
-                .map(c -> {
-                    CategoriaEmbandejado categoria = categoriaRepo.findById(c.idCategoriaEmbandejado())
-                            .orElseThrow(() -> new EntityNotFoundException(
-                                    "Categoria de embandejado no encontrada: " + c.idCategoriaEmbandejado()));
-                    StockIncubable stock = validarYObtenerStockDisponible(
-                            fusionLote, categoria, request.fechaCarga(), c.cantidadInicial());
-                    return new CategoriaValidada(categoria, c.cantidadInicial(), stock);
-                })
-                .toList();
+            for (LoteFusionCargaRequestDTO loteReq : lineaReq.lotesFusion()) {
+                FusionLote fusionLote = fusionLoteRepo.findById(loteReq.idFusionLote())
+                    .orElseThrow(() -> new EntityNotFoundException("FusionLote no encontrado: " + loteReq.idFusionLote()));
 
-        int totalNuevo = categoriasValidadas.stream()
-                .mapToInt(CategoriaValidada::cantidad)
-                .sum();
+                if (!fusionLote.getActiva()) {
+                    throw new IllegalArgumentException("La fusion " + fusionLote.getCodigoFusion() + " esta anulada");
+                }
+                if (!fusionLote.getIdLineaGenetica().equals(lineaReq.idLineaGenetica())) {
+                    throw new IllegalArgumentException(
+                        "El fusionLote " + loteReq.idFusionLote() + " no pertenece a la linea genetica " + lineaReq.idLineaGenetica());
+                }
 
-        int sumaMaquinasNueva = request.maquinas().stream()
-                .mapToInt(AsignacionMaquinaRequestDTO::cantidad)
-                .sum();
+                Carga carga = obtenerOCrearCarga(fusionLote, request.fechaCarga());
+                List<CategoriaCargaResponseDTO> categoriasDTO = new ArrayList<>();
 
-        if (sumaMaquinasNueva != totalNuevo) {
-            throw new IllegalArgumentException(
-                    "La suma de las cantidades asignadas a maquinas (" + sumaMaquinasNueva +
-                    ") debe ser igual a la suma de las categorias enviadas (" + totalNuevo + ")");
+                for (CategoriaCargaRequestDTO catReq : loteReq.categoriasCargadas()) {
+                    CategoriaEmbandejado categoria = categoriaRepo.findById(catReq.idCategoriaEmbandejado())
+                        .orElseThrow(() -> new EntityNotFoundException("Categoria no encontrada: " + catReq.idCategoriaEmbandejado()));
+
+                    Maquina maquina = maquinaRepo.findById(catReq.idMaquina())
+                        .orElseThrow(() -> new EntityNotFoundException("Maquina no encontrada: " + catReq.idMaquina()));
+
+                    if (maquina.getTipo() != TipoMaquina.INCUBADORA) {
+                        throw new IllegalArgumentException("La maquina " + maquina.getNumero() + " no es una incubadora");
+                    }
+
+                    StockIncubable stock = stockMovimiento.obtenerOCrearStockDeHoy(fusionLote, categoria);
+                    if (stock.getStockActual() < catReq.cantidadCargada()) {
+                        throw new IllegalArgumentException(
+                            "Stock insuficiente en " + fusionLote.getCodigoFusion() + " / " + categoria.getCodigoCategoria() +
+                            ". Disponible: " + stock.getStockActual() + ", solicitado: " + catReq.cantidadCargada());
+                    }
+
+                    validarCapacidadMaquina(maquina, catReq.cantidadCargada());
+
+                    CategoriaCarga cc = registrarCategoriaCarga(carga, categoria, maquina, catReq.cantidadCargada());
+                    acumularAsignacionMaquina(carga, maquina, catReq.cantidadCargada());
+
+                    stock.setCargaIncubadora(stock.getCargaIncubadora() + catReq.cantidadCargada());
+                    stockMovimiento.recalcularStockActual(stock);
+                    stockMovimiento.guardar(stock);
+
+                    carga.setCantidadInicial(carga.getCantidadInicial() + catReq.cantidadCargada());
+
+                    categoriasDTO.add(new CategoriaCargaResponseDTO(
+                            categoria.getIdCategoriaEmbandejado(), 
+                            categoria.getCodigoCategoria(),
+                            cc.getCantidadInicial(), 
+                            maquina.getIdMaquina(), 
+                            String.valueOf(maquina.getNumero())
+                        ));
+                    }
+
+                cargaRepo.save(carga);
+
+                int totalLote = categoriasDTO.stream().mapToInt(CategoriaCargaResponseDTO::cantidadCargada).sum();
+                lotesDTO.add(new LoteFusionCargaResponseDTO(
+                    fusionLote.getIdFusionLote(), fusionLote.getCodigoFusion(), totalLote, categoriasDTO));
+            }
+
+            int totalLinea = lotesDTO.stream().mapToInt(LoteFusionCargaResponseDTO::totalCargadoLote).sum();
+            lineasDTO.add(new LineaGeneticaCargaResponseDTO(
+                lineaReq.idLineaGenetica(), lotesDTO.get(0) != null ? obtenerNombreLinea(lineaReq.idLineaGenetica(), lotesDTO) : "",
+                totalLinea, lotesDTO));
         }
 
-        Optional<Carga> cargaExistente = cargaRepo.findByFusionLoteAndFechaCargaAndEstado(
-                fusionLote, request.fechaCarga(), EstadoCarga.EN_INCUBACION);
-
-        final Carga carga;
-        if (cargaExistente.isPresent()) {
-            Carga cExistente = cargaExistente.get();
-            cExistente.setCantidadInicial(cExistente.getCantidadInicial() + totalNuevo);
-            carga = cargaRepo.save(cExistente);
-        } else {
-            Carga cNueva = new Carga();
-            cNueva.setFusionLote(fusionLote);
-            cNueva.setCantidadInicial(totalNuevo);
-            cNueva.setFechaCarga(request.fechaCarga());
-            cNueva.setFechaTransferenciaNacedora(request.fechaCarga().plusDays(18));
-            cNueva.setFechaNacimiento(request.fechaCarga().plusDays(21));
-            cNueva.setEstado(EstadoCarga.EN_INCUBACION);
-            carga = cargaRepo.save(cNueva);
-        }
-
-        for (CategoriaValidada cv : categoriasValidadas) {
-            CategoriaCarga cc = categoriaCargaRepo.findByCargaAndCategoriaEmbandejado(carga, cv.categoria())
-                    .orElseGet(() -> {
-                        CategoriaCarga nueva = new CategoriaCarga();
-                        nueva.setCarga(carga);
-                        nueva.setCategoriaEmbandejado(cv.categoria());
-                        nueva.setCantidadInicial(0);
-                        return nueva;
-                    });
-            cc.setCantidadInicial(cc.getCantidadInicial() + cv.cantidad());
-            categoriaCargaRepo.save(cc);
-        }
-
-        for (AsignacionMaquinaRequestDTO asignacionReq : request.maquinas()) {
-            construirOAcumularAsignacion(asignacionReq, carga);
-        }
-
-        categoriasValidadas.forEach(cv -> descontarStock(cv.stock(), cv.cantidad()));
-
-        List<CategoriaCarga> categoriasCarga = categoriaCargaRepo.findByCarga(carga);
-        List<AsignacionCargaMaquina> asignaciones = asignacionRepo.findByCarga(carga);
-
-        return construirResponseCompleto(carga, categoriasCarga, asignaciones);
+        int totalGlobal = lineasDTO.stream().mapToInt(LineaGeneticaCargaResponseDTO::totalCargadoLinea).sum();
+        return new CargaResponseDTO(request.fechaCarga(), totalGlobal, lineasDTO);
     }
 
     @Override
-    @Transactional
-    public CargaResponseDTO obtenerPorId(Long id) {
+    public CargaDetalleResponseDTO obtenerPorId(Long id) {
         Carga carga = buscarCarga(id);
         List<CategoriaCarga> categoriasCarga = categoriaCargaRepo.findByCarga(carga);
         List<AsignacionCargaMaquina> asignaciones = asignacionRepo.findByCarga(carga);
         return construirResponseCompleto(carga, categoriasCarga, asignaciones);
     }
 
+    @Override
+    public List<CargaDetalleResponseDTO> listarCargas() {
+        return cargaRepo.findAll().stream()
+            .map(carga -> construirResponseCompleto(
+                carga, categoriaCargaRepo.findByCarga(carga), asignacionRepo.findByCarga(carga)))
+            .toList();
+    }
+
     // ---------------------- métodos privados de apoyo ----------------------
 
-    private StockIncubable validarYObtenerStockDisponible(
-            FusionLote fusionLote, CategoriaEmbandejado categoria, LocalDate fecha, Integer cantidadSolicitada) {
+    private Carga obtenerOCrearCarga(FusionLote fusionLote, java.time.LocalDate fechaCarga) {
+        Optional<Carga> existente = cargaRepo.findByFusionLoteAndFechaCargaAndEstado(
+            fusionLote, fechaCarga, EstadoCarga.EN_INCUBACION);
 
-        StockIncubable stock = stockRepo
-                .findTopByFusionLoteAndCategoriaEmbandejadoAndFechaLessThanOrderByFechaDesc(
-                        fusionLote, categoria, fecha.plusDays(1))
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "No hay stock incubable registrado para la categoria " + categoria.getCodigoCategoria()));
-
-        if (stock.getStockActual() < cantidadSolicitada) {
-            throw new IllegalArgumentException(
-                    "Stock insuficiente en categoria " + categoria.getCodigoCategoria() +
-                    ". Disponible: " + stock.getStockActual() + ", solicitado: " + cantidadSolicitada);
+        if (existente.isPresent()) {
+            return existente.get();
         }
 
-        return stock;
+        Carga nueva = new Carga();
+        nueva.setFusionLote(fusionLote);
+        nueva.setCantidadInicial(0);
+        nueva.setFechaCarga(fechaCarga);
+        nueva.setFechaTransferenciaNacedora(fechaCarga.plusDays(18));
+        nueva.setFechaNacimiento(fechaCarga.plusDays(21));
+        nueva.setEstado(EstadoCarga.EN_INCUBACION);
+        return cargaRepo.save(nueva);
     }
 
-    private void descontarStock(StockIncubable stock, Integer cantidad) {
-        stock.setCargaIncubadora(stock.getCargaIncubadora() + cantidad);
-        stock.setStockActual(stock.getStockActual() - cantidad);
-        stockRepo.save(stock);
-    }
+    private CategoriaCarga registrarCategoriaCarga(Carga carga, CategoriaEmbandejado categoria, Maquina maquina, Integer cantidad) {
+        CategoriaCarga cc = categoriaCargaRepo.findByCargaAndCategoriaEmbandejado(carga, categoria)
+            .orElseGet(() -> {
+                CategoriaCarga nueva = new CategoriaCarga();
+                nueva.setCarga(carga);
+                nueva.setCategoriaEmbandejado(categoria);
+                nueva.setMaquina(maquina);
+                nueva.setCantidadInicial(0);
+                return nueva;
+            });
 
-    private void construirOAcumularAsignacion(AsignacionMaquinaRequestDTO asignacionReq, Carga carga) {
-
-        Maquina maquina = maquinaRepo.findById(asignacionReq.idMaquina())
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Maquina no encontrada: " + asignacionReq.idMaquina()));
-
-        if (maquina.getTipo() != TipoMaquina.INCUBADORA) {
+        if (!cc.getMaquina().getIdMaquina().equals(maquina.getIdMaquina())) {
             throw new IllegalArgumentException(
-                    "La maquina " + maquina.getNumero() + " no es una incubadora");
+                "La categoria " + categoria.getCodigoCategoria() + " de este lote ya fue cargada en otra maquina (" +
+                cc.getMaquina().getNumero() + "); no se puede repartir entre dos maquinas");
         }
 
+        cc.setCantidadInicial(cc.getCantidadInicial() + cantidad);
+        return categoriaCargaRepo.save(cc);
+    }
+
+    private void validarCapacidadMaquina(Maquina maquina, Integer cantidad) {
         int yaAsignado = asignacionRepo.sumAsignadoActivoPorMaquina(
-                maquina, FaseAsignacion.INCUBACION, EstadoCarga.FINALIZADA);
+            maquina, FaseAsignacion.INCUBACION, EstadoCarga.FINALIZADA);
         int disponible = maquina.getCapacidadMaxima() - yaAsignado;
 
-        if (asignacionReq.cantidad() > disponible) {
+        if (cantidad > disponible) {
             throw new IllegalArgumentException(
-                    "Capacidad insuficiente en incubadora " + maquina.getNumero() +
-                    ". Disponible: " + disponible + ", solicitado: " + asignacionReq.cantidad());
+                "Capacidad insuficiente en incubadora " + maquina.getNumero() +
+                ". Disponible: " + disponible + ", solicitado: " + cantidad);
         }
+    }
 
+    private void acumularAsignacionMaquina(Carga carga, Maquina maquina, Integer cantidad) {
         AsignacionCargaMaquina asignacion = asignacionRepo
-                .findByCargaAndMaquinaAndFase(carga, maquina, FaseAsignacion.INCUBACION)
-                .orElseGet(() -> {
-                    AsignacionCargaMaquina nueva = new AsignacionCargaMaquina();
-                    nueva.setCarga(carga);
-                    nueva.setMaquina(maquina);
-                    nueva.setFase(FaseAsignacion.INCUBACION);
-                    nueva.setCantidadAsignada(0);
-                    return nueva;
-                });
-
-        asignacion.setCantidadAsignada(asignacion.getCantidadAsignada() + asignacionReq.cantidad());
+            .findByCargaAndMaquinaAndFase(carga, maquina, FaseAsignacion.INCUBACION)
+            .orElseGet(() -> {
+                AsignacionCargaMaquina nueva = new AsignacionCargaMaquina();
+                nueva.setCarga(carga);
+                nueva.setMaquina(maquina);
+                nueva.setFase(FaseAsignacion.INCUBACION);
+                nueva.setCantidadAsignada(0);
+                return nueva;
+            });
+        asignacion.setCantidadAsignada(asignacion.getCantidadAsignada() + cantidad);
         asignacionRepo.save(asignacion);
     }
 
-    private CargaResponseDTO construirResponseCompleto(
+    private String obtenerNombreLinea(Long idLineaGenetica, List<LoteFusionCargaResponseDTO> lotesDTO) {
+        // el nombre de linea no viaja en LoteFusionCargaResponseDTO; lo resolvemos via el primer fusionLote consultado
+        return fusionLoteRepo.findById(lotesDTO.get(0).idFusionLote())
+            .map(FusionLote::getLineaGeneticaNombre)
+            .orElse("");
+    }
+
+    private CargaDetalleResponseDTO construirResponseCompleto(
             Carga carga, List<CategoriaCarga> categoriasCarga, List<AsignacionCargaMaquina> asignaciones) {
 
         List<CategoriaCargaResponseDTO> categoriasDTO = categoriasCarga.stream()
                 .map(cc -> new CategoriaCargaResponseDTO(
-                        cc.getCategoriaEmbandejado().getCodigoCategoria(), cc.getCantidadInicial()))
+                        cc.getCategoriaEmbandejado().getIdCategoriaEmbandejado(),
+                        cc.getCategoriaEmbandejado().getCodigoCategoria(), 
+                        cc.getCantidadInicial(),
+                        cc.getMaquina().getIdMaquina(),
+                        String.valueOf(cc.getMaquina().getNumero())
+                ))
                 .toList();
 
         List<AsignacionMaquinaResponseDTO> asignacionesDTO = asignaciones.stream()
-                .map(asignacionMapper::toResponseDTO)
+                .map(a -> new AsignacionMaquinaResponseDTO(a.getMaquina().getNumero(), a.getCantidadAsignada()))
                 .toList();
 
         int bandejasCompletas = carga.getCantidadInicial() / CAPACIDAD_BANDEJA;
         int residuo = carga.getCantidadInicial() % CAPACIDAD_BANDEJA;
 
-        return new CargaResponseDTO(
+        return new CargaDetalleResponseDTO(
                 carga.getIdCarga(),
                 carga.getFusionLote().getCodigoFusion(),
                 categoriasDTO,
@@ -232,13 +239,5 @@ public class CargaImpl implements ICargaService {
     private Carga buscarCarga(Long id) {
         return cargaRepo.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Carga no encontrada: " + id));
-    }
-
-    @Override
-    public List<CargaResponseDTO> listarCargas() {
-        return cargaRepo.findAll().stream()
-                .map(carga -> construirResponseCompleto(
-                        carga, categoriaCargaRepo.findByCarga(carga), asignacionRepo.findByCarga(carga)))
-                .toList();
     }
 }
