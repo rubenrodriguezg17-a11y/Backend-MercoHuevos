@@ -6,6 +6,9 @@ import com.mercohuevos.plantaincubacion.model.FusionLote;
 import com.mercohuevos.plantaincubacion.model.RecepcionReporte;
 
 public interface IFusionLoteRepository extends JpaRepository<FusionLote, Long> {
-    List<FusionLote> findByRecepcionAndActivaTrue(RecepcionReporte recepcion);
-    boolean existsByCodigoFusion(String codigoFusion);
-    }
+    List<FusionLote> 	findByRecepcionAndActivaTrue(RecepcionReporte recepcion);
+    List<FusionLote> 	findByRecepcionAndActivaFalse(RecepcionReporte recepcion);
+    List<FusionLote> 	findByRecepcion(RecepcionReporte recepcion);
+    boolean 			existsByRecepcionAndIdLineaGeneticaAndCodigoFusion(
+        RecepcionReporte recepcion, Long idLineaGenetica, String codigoFusion);
+}

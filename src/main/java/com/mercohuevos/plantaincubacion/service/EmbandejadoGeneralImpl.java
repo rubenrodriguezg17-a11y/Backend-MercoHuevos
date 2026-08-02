@@ -42,12 +42,18 @@ public class EmbandejadoGeneralImpl implements IEmbandejadoGeneralService {
 
         for (LineaGeneticaEmbandejadoRequestDTO linea : request.lineasGeneticas()) {
             for (LoteFusionadoEmbandejadoRequestDTO loteReq : linea.lotesFusionados()) {
-                FusionLote fusionLote = fusionLoteRepo.findById(loteReq.idFusionLote())
-                    .orElseThrow(() -> new EntityNotFoundException("FusionLote no encontrado: " + loteReq.idFusionLote()));
-                if (!fusionLote.getIdLineaGenetica().equals(linea.idLineaGenetica())) {
-                    throw new IllegalArgumentException(
-                        "El fusionLote " + loteReq.idFusionLote() + " no pertenece a la linea genetica " + linea.idLineaGenetica());
-                }
+            	
+            	FusionLote fusionLote = fusionLoteRepo.findById(loteReq.idFusionLote())
+                        .orElseThrow(() -> new EntityNotFoundException("FusionLote no encontrado: " + loteReq.idFusionLote()));
+                    if (!fusionLote.getActiva()) {
+                        throw new IllegalArgumentException(
+                            "La fusion " + fusionLote.getCodigoFusion() + " esta anulada y no puede embandejarse. " +
+                            "Fue reemplazada por una fusion mayor.");
+                    }
+                    if (!fusionLote.getIdLineaGenetica().equals(linea.idLineaGenetica())) {
+                        throw new IllegalArgumentException(
+                            "El fusionLote " + loteReq.idFusionLote() + " no pertenece a la linea genetica " + linea.idLineaGenetica());
+                    }
 
                 EmbandejadoLoteFusion detalle = embandejado.getLotesFusionados().stream()
                     .filter(d -> d.getFusionLote().getIdFusionLote().equals(loteReq.idFusionLote()))

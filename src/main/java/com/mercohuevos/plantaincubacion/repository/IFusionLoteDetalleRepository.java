@@ -8,7 +8,8 @@ import com.mercohuevos.plantaincubacion.model.FusionLoteDetalle;
 import com.mercohuevos.plantaincubacion.model.LoteOrigenReporte;
 
 public interface IFusionLoteDetalleRepository extends JpaRepository<FusionLoteDetalle, Long> {
-    List<FusionLoteDetalle> findByFusionLote(FusionLote fusionLote);
-    boolean existsByLoteOrigenReporte(LoteOrigenReporte lote);
-    void deleteByFusionLote(FusionLote fusionLote);
+    List<FusionLoteDetalle> 	findByFusionLote(FusionLote fusionLote);
+    List<FusionLoteDetalle> 	findByFusionLoteIn(List<FusionLote> fusiones);
+    boolean 				 	existsByLoteOrigenReporte(LoteOrigenReporte lote);
+    void 						deleteByFusionLote(FusionLote fusionLote);
 }

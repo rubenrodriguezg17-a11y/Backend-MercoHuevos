@@ -5,7 +5,9 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Entity
-@Table(name = "fusion_lote")
+@Table(name = "fusion_lote", uniqueConstraints =
+    @UniqueConstraint(name = "uk_fusion_recepcion_linea_codigo",
+        columnNames = {"id_recepcion", "id_linea_genetica", "codigo_fusion"}))
 @Getter
 @Setter
 public class FusionLote {
@@ -24,7 +26,7 @@ public class FusionLote {
     @Column(name = "linea_genetica_nombre", nullable = false)
     private String lineaGeneticaNombre;
 
-    @Column(name = "codigo_fusion", nullable = false, unique = true)
+    @Column(name = "codigo_fusion", nullable = false)
     private String codigoFusion;
 
     @Column(name = "huevos_incubables_guia", nullable = false)

@@ -13,4 +13,6 @@ public interface ICargaRepository extends JpaRepository<Carga, Long> {
 
     Optional<Carga> findByFusionLoteAndFechaCargaAndEstado(
             FusionLote fusionLote, LocalDate fechaCarga, EstadoCarga estado);
+
+    boolean existsByFusionLote(FusionLote fusionLote);
 }

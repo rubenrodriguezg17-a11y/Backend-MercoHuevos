@@ -9,6 +9,8 @@ public interface IFusionLoteService {
     FusionLoteDTO crear(FusionLoteRequestDTO request);
     FusionLoteDTO editar(Long idFusionLote, EditarFusionLoteRequestDTO request);
     void anular(Long idFusionLote);
-    List<FusionLoteDTO> listarPorRecepcion(Long idRecepcion);
+    List<FusionLoteDTO> listarActivasPorRecepcion(Long idRecepcion);
+    List<FusionLoteDTO> listarAnuladasPorRecepcion(Long idRecepcion);
+    List<FusionLoteDTO> listarTodasPorRecepcion(Long idRecepcion);
     FusionLoteDTO obtenerPorId(Long idFusionLote);
 }

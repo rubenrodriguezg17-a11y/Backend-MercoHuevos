@@ -17,8 +17,12 @@ import com.mercohuevos.plantaincubacion.dto.LineaGeneticaRecepcionDTO;
 import com.mercohuevos.plantaincubacion.dto.LoteOrigenReporteDTO;
 import com.mercohuevos.plantaincubacion.dto.RecepcionReporteDTO;
 import com.mercohuevos.plantaincubacion.enums.EstadoRecepcion;
+import com.mercohuevos.plantaincubacion.model.FusionLote;
+import com.mercohuevos.plantaincubacion.model.FusionLoteDetalle;
 import com.mercohuevos.plantaincubacion.model.LoteOrigenReporte;
 import com.mercohuevos.plantaincubacion.model.RecepcionReporte;
+import com.mercohuevos.plantaincubacion.repository.IFusionLoteDetalleRepository;
+import com.mercohuevos.plantaincubacion.repository.IFusionLoteRepository;
 import com.mercohuevos.plantaincubacion.repository.ILoteOrigenReporteRepository;
 import com.mercohuevos.plantaincubacion.repository.IRecepcionReporteRepository;
 
@@ -32,6 +36,8 @@ public class RecepcionReporteImpl implements IRecepcionReporteService {
 
     private final IRecepcionReporteRepository recepcionRepo;
     private final ILoteOrigenReporteRepository loteOrigenRepo;
+    private final IFusionLoteRepository fusionLoteRepo;
+    private final IFusionLoteDetalleRepository fusionDetalleRepo;
     private final IClasificacionTipoHuevoService clasificacionService;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -52,70 +58,98 @@ public class RecepcionReporteImpl implements IRecepcionReporteService {
         RecepcionReporte guardada = recepcionRepo.save(recepcion);
 
         List<LoteOrigenReporte> lotesOrigen = reporteEvento.detalles().stream()
-				.map(detalle -> construirLoteOrigen(detalle, guardada)).toList();
+                .map(detalle -> construirLoteOrigen(detalle, guardada)).toList();
 
-		loteOrigenRepo.saveAll(lotesOrigen);
-	}
+        List<LoteOrigenReporte> lotesGuardados = loteOrigenRepo.saveAll(lotesOrigen);
 
-	@Override
-	public RecepcionReporteDTO obtenerPorId(Long id) {
-		return construirDTOCompleto(buscarRecepcion(id));
-	}
+        lotesGuardados.forEach(this::autogenerarFusionDeUnLote);
+    }
 
-	@Override
-	public List<RecepcionReporteDTO> listarTodos() {
-		return recepcionRepo.findAll().stream().map(this::construirDTOCompleto).toList();
-	}
+    @Override
+    public RecepcionReporteDTO obtenerPorId(Long id) {
+        return construirDTOCompleto(buscarRecepcion(id));
+    }
 
-	@Override
-	@Transactional
-	public RecepcionReporteDTO confirmarRecepcion(Long id) {
-		RecepcionReporte recepcion = buscarRecepcion(id);
+    @Override
+    public List<RecepcionReporteDTO> listarTodos() {
+        return recepcionRepo.findAll().stream().map(this::construirDTOCompleto).toList();
+    }
 
-		if (recepcion.getEstado() == EstadoRecepcion.RECIBIDO || recepcion.getEstado() == EstadoRecepcion.PROCESADO) {
-		    throw new IllegalStateException("Esta recepcion ya fue confirmada anteriormente");
-		}
+    @Override
+    @Transactional
+    public RecepcionReporteDTO confirmarRecepcion(Long id) {
+        RecepcionReporte recepcion = buscarRecepcion(id);
 
-		recepcion.setEstado(EstadoRecepcion.RECIBIDO);
-		
-		RecepcionReporte guardada = recepcionRepo.save(recepcion);
+        if (recepcion.getEstado() == EstadoRecepcion.RECIBIDO || recepcion.getEstado() == EstadoRecepcion.PROCESADO) {
+            throw new IllegalStateException("Esta recepcion ya fue confirmada anteriormente");
+        }
 
-		LocalTime horaLlegada = LocalTime.now();
+        recepcion.setEstado(EstadoRecepcion.RECIBIDO);
 
-		eventPublisher.publishEvent(new ReporteRecibidoConfirmadoEvent(
-				new ReporteRecibidoConfirmadoDTO(guardada.getIdReporteGranja(), horaLlegada)));
+        RecepcionReporte guardada = recepcionRepo.save(recepcion);
 
-		return construirDTOCompleto(guardada);
-	}
+        LocalTime horaLlegada = LocalTime.now();
 
-	private LoteOrigenReporte construirLoteOrigen(DetalleLoteEventDTO detalle, RecepcionReporte recepcion) {
-		int totalIncubable = 0;
-		int totalComercial = 0;
-		for (ConteoTipoHuevoEventDTO conteo : detalle.conteos()) {
-			if (clasificacionService.esIncubable(conteo.codigoTipoHuevo())) {
-				totalIncubable += conteo.cantidad();
-			} else {
-				totalComercial += conteo.cantidad();
-			}
-		}
-		LoteOrigenReporte loteOrigen = new LoteOrigenReporte();
-		loteOrigen.setRecepcion(recepcion);
-		loteOrigen.setIdLoteGranja(detalle.idLote());
-		loteOrigen.setCodigoLoteGranja(detalle.codigoLote());
-		loteOrigen.setIdLineaGenetica(detalle.idLineaGenetica());
-		loteOrigen.setLineaGeneticaNombre(detalle.lineaGeneticaNombre());
-		loteOrigen.setHuevosIncubablesGuia(totalIncubable);
-		loteOrigen.setHuevosComercialGuia(totalComercial);
-		return loteOrigen;
-	}
+        eventPublisher.publishEvent(new ReporteRecibidoConfirmadoEvent(
+                new ReporteRecibidoConfirmadoDTO(guardada.getIdReporteGranja(), horaLlegada)));
 
-	private RecepcionReporteDTO construirDTOCompleto(RecepcionReporte recepcion) {
-		List<LoteOrigenReporte> lotesOrigen = loteOrigenRepo.findByRecepcion(recepcion);
+        return construirDTOCompleto(guardada);
+    }
 
-		Map<Long, List<LoteOrigenReporte>> agrupadoPorGenetica = lotesOrigen.stream()
-				.collect(Collectors.groupingBy(LoteOrigenReporte::getIdLineaGenetica));
+    private LoteOrigenReporte construirLoteOrigen(DetalleLoteEventDTO detalle, RecepcionReporte recepcion) {
+        int totalIncubable = 0;
+        int totalComercial = 0;
+        for (ConteoTipoHuevoEventDTO conteo : detalle.conteos()) {
+            if (clasificacionService.esIncubable(conteo.codigoTipoHuevo())) {
+                totalIncubable += conteo.cantidad();
+            } else {
+                totalComercial += conteo.cantidad();
+            }
+        }
+        LoteOrigenReporte loteOrigen = new LoteOrigenReporte();
+        loteOrigen.setRecepcion(recepcion);
+        loteOrigen.setIdLoteGranja(detalle.idLote());
+        loteOrigen.setCodigoLoteGranja(detalle.codigoLote());
+        loteOrigen.setIdLineaGenetica(detalle.idLineaGenetica());
+        loteOrigen.setLineaGeneticaNombre(detalle.lineaGeneticaNombre());
+        loteOrigen.setHuevosIncubablesGuia(totalIncubable);
+        loteOrigen.setHuevosComercialGuia(totalComercial);
+        return loteOrigen;
+    }
 
-		List<LineaGeneticaRecepcionDTO> lineasDTO = agrupadoPorGenetica.entrySet().stream().map(entry -> {
+    private void autogenerarFusionDeUnLote(LoteOrigenReporte lote) {
+    	
+    	if (fusionLoteRepo.existsByRecepcionAndIdLineaGeneticaAndCodigoFusion(
+                lote.getRecepcion(), lote.getIdLineaGenetica(), lote.getCodigoLoteGranja())) {
+            throw new IllegalStateException(
+                "Reporte con datos inconsistentes: el lote " + lote.getCodigoLoteGranja() +
+                " esta duplicado dentro de la misma linea genetica y recepcion");
+        }
+    	
+        FusionLote fusionLote = new FusionLote();
+        fusionLote.setRecepcion(lote.getRecepcion());
+        fusionLote.setIdLineaGenetica(lote.getIdLineaGenetica());
+        fusionLote.setLineaGeneticaNombre(lote.getLineaGeneticaNombre());
+        fusionLote.setCodigoFusion(lote.getCodigoLoteGranja());
+        fusionLote.setHuevosIncubablesGuia(lote.getHuevosIncubablesGuia());
+        fusionLote.setHuevosComercialGuia(lote.getHuevosComercialGuia());
+        fusionLote.setActiva(true);
+
+        FusionLote guardada = fusionLoteRepo.save(fusionLote);
+
+        FusionLoteDetalle detalle = new FusionLoteDetalle();
+        detalle.setFusionLote(guardada);
+        detalle.setLoteOrigenReporte(lote);
+        fusionDetalleRepo.save(detalle);
+    }
+
+    private RecepcionReporteDTO construirDTOCompleto(RecepcionReporte recepcion) {
+        List<LoteOrigenReporte> lotesOrigen = loteOrigenRepo.findByRecepcion(recepcion);
+
+        Map<Long, List<LoteOrigenReporte>> agrupadoPorGenetica = lotesOrigen.stream()
+                .collect(Collectors.groupingBy(LoteOrigenReporte::getIdLineaGenetica));
+
+        List<LineaGeneticaRecepcionDTO> lineasDTO = agrupadoPorGenetica.entrySet().stream().map(entry -> {
                 List<LoteOrigenReporte> grupo = entry.getValue();
                 String nombre = grupo.get(0).getLineaGeneticaNombre();
                 int totalIncubable = grupo.stream().mapToInt(LoteOrigenReporte::getHuevosIncubablesGuia).sum();

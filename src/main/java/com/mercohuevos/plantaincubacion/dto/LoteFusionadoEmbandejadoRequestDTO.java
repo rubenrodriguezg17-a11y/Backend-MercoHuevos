@@ -7,10 +7,18 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 
 public record LoteFusionadoEmbandejadoRequestDTO(
-    @NotNull Long idFusionLote,
-    @Min(0) Integer rotosTransporte,
-    @Min(0) Integer rotosEmbandejado,
-    @Min(0) Integer seleccionDescartada,
+    @NotNull 
+    Long idFusionLote,
+    
+    @Min(0) 
+    Integer rotosTransporte,
+    
+    @Min(0) 
+    Integer rotosEmbandejado,
+    
+    @Min(0) 
+    Integer seleccionDescartada,
+    
     String observaciones,
     @NotEmpty @Valid List<ConteoCategoriaEmbandejadoRequestDTO> conteos
 ) {}

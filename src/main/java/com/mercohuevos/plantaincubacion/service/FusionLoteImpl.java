@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 
 import com.mercohuevos.plantaincubacion.dto.*;
 import com.mercohuevos.plantaincubacion.enums.EstadoRecepcion;
+import com.mercohuevos.plantaincubacion.mapper.IFusionLoteMapper;
 import com.mercohuevos.plantaincubacion.model.*;
 import com.mercohuevos.plantaincubacion.repository.*;
 
@@ -19,56 +20,56 @@ public class FusionLoteImpl implements IFusionLoteService {
 
     private final IFusionLoteRepository fusionLoteRepo;
     private final IFusionLoteDetalleRepository fusionDetalleRepo;
-    private final ILoteOrigenReporteRepository loteOrigenRepo;
     private final IRecepcionReporteRepository recepcionRepo;
+    private final ICargaRepository cargaRepo;
+    private final IFusionLoteMapper mapper;
 
-    @Override
+   @Override
     @Transactional
     public FusionLoteDTO crear(FusionLoteRequestDTO request) {
         RecepcionReporte recepcion = recepcionRepo.findById(request.idRecepcion())
             .orElseThrow(() -> new EntityNotFoundException("Recepcion no encontrada: " + request.idRecepcion()));
         validarRecepcionEditable(recepcion);
-        
-        if ( fusionLoteRepo.existsByCodigoFusion(request.nombreFusion())) {
-        	throw new IllegalArgumentException("Ya existe una fusion con el nombre: " + request.nombreFusion());
+
+        if (fusionLoteRepo.existsByRecepcionAndIdLineaGeneticaAndCodigoFusion(
+                recepcion, request.idLineaGenetica(), request.nombreFusion())) {
+            throw new IllegalArgumentException("Ya existe una fusion con ese nombre en esta linea genetica y recepcion");
         }
-        List<LoteOrigenReporte> lotesOrigen = cargarYValidarLotes(request.idsLoteOrigen(), recepcion, request.idLineaGenetica());
 
-        FusionLote fusionLote = new FusionLote();
-        fusionLote.setRecepcion(recepcion);
-        fusionLote.setIdLineaGenetica(request.idLineaGenetica());
-        fusionLote.setLineaGeneticaNombre(lotesOrigen.get(0).getLineaGeneticaNombre());
-        fusionLote.setActiva(true);
-        fusionLote.setCodigoFusion(request.nombreFusion());
-        aplicarTotales(fusionLote, lotesOrigen);
+        List<FusionLote> fusionesOrigen = cargarYValidarFusionesOrigen(
+            request.idsFusionOrigen(), recepcion, request.idLineaGenetica());
 
-        FusionLote guardada = fusionLoteRepo.save(fusionLote);
-        guardarDetalles(guardada, lotesOrigen);
+        FusionLote nueva = new FusionLote();
+        nueva.setRecepcion(recepcion);
+        nueva.setIdLineaGenetica(request.idLineaGenetica());
+        nueva.setLineaGeneticaNombre(fusionesOrigen.get(0).getLineaGeneticaNombre());
+        nueva.setCodigoFusion(request.nombreFusion());
+        nueva.setActiva(true);
+        aplicarTotales(nueva, fusionesOrigen);
 
-        return construirResponse(guardada, lotesOrigen);
+        FusionLote guardada = fusionLoteRepo.save(nueva);
+
+        moverDetallesYAnularOrigen(guardada, fusionesOrigen);
+
+        return construirResponse(guardada, obtenerLotesOrigen(guardada));
     }
 
     @Override
     @Transactional
     public FusionLoteDTO editar(Long idFusionLote, EditarFusionLoteRequestDTO request) {
         FusionLote fusionLote = buscarFusion(idFusionLote);
-        RecepcionReporte recepcion = fusionLote.getRecepcion();
-        validarRecepcionEditable(recepcion);
-        
+        validarRecepcionEditable(fusionLote.getRecepcion());
+
         if (!fusionLote.getCodigoFusion().equals(request.nombreFusion())
-        		&& fusionLoteRepo.existsByCodigoFusion(request.nombreFusion())) {
-        	throw new IllegalArgumentException("Ya existe uan fusion co el nombre: " + request.nombreFusion());
+                && fusionLoteRepo.existsByRecepcionAndIdLineaGeneticaAndCodigoFusion(
+                       fusionLote.getRecepcion(), fusionLote.getIdLineaGenetica(), request.nombreFusion())) {
+            throw new IllegalArgumentException("Ya existe una fusion con ese nombre en esta linea genetica y recepcion");
         }
 
-        fusionDetalleRepo.deleteByFusionLote(fusionLote);
-
-        List<LoteOrigenReporte> lotesOrigen = cargarYValidarLotes(request.idsLoteOrigen(), recepcion, fusionLote.getIdLineaGenetica());
         fusionLote.setCodigoFusion(request.nombreFusion());
-        aplicarTotales(fusionLote, lotesOrigen);
         FusionLote actualizada = fusionLoteRepo.save(fusionLote);
-        guardarDetalles(actualizada, lotesOrigen);
 
-        return construirResponse(actualizada, lotesOrigen);
+        return construirResponse(actualizada, obtenerLotesOrigen(actualizada));
     }
 
     @Override
@@ -76,18 +77,13 @@ public class FusionLoteImpl implements IFusionLoteService {
     public void anular(Long idFusionLote) {
         FusionLote fusionLote = buscarFusion(idFusionLote);
         validarRecepcionEditable(fusionLote.getRecepcion());
-        fusionDetalleRepo.deleteByFusionLote(fusionLote);
+
+        if (cargaRepo.existsByFusionLote(fusionLote)) {
+            throw new IllegalStateException("No se puede anular: esta fusion ya tiene una carga registrada");
+        }
+
         fusionLote.setActiva(false);
         fusionLoteRepo.save(fusionLote);
-    }
-
-    @Override
-    public List<FusionLoteDTO> listarPorRecepcion(Long idRecepcion) {
-        RecepcionReporte recepcion = recepcionRepo.findById(idRecepcion)
-            .orElseThrow(() -> new EntityNotFoundException("Recepcion no encontrada: " + idRecepcion));
-        return fusionLoteRepo.findByRecepcionAndActivaTrue(recepcion).stream()
-            .map(f -> construirResponse(f, obtenerLotesOrigen(f)))
-            .toList();
     }
 
     @Override
@@ -96,7 +92,36 @@ public class FusionLoteImpl implements IFusionLoteService {
         return construirResponse(fusionLote, obtenerLotesOrigen(fusionLote));
     }
 
+
+    @Override
+    public List<FusionLoteDTO> listarActivasPorRecepcion(Long idRecepcion) {
+        RecepcionReporte recepcion = recepcionRepo.findById(idRecepcion)
+            .orElseThrow(() -> new EntityNotFoundException("Recepcion no encontrada: " + idRecepcion));
+        return fusionLoteRepo.findByRecepcionAndActivaTrue(recepcion).stream()
+            .map(f -> construirResponse(f, obtenerLotesOrigen(f)))
+            .toList();
+    }
+
+    @Override
+    public List<FusionLoteDTO> listarAnuladasPorRecepcion(Long idRecepcion) {
+        RecepcionReporte recepcion = recepcionRepo.findById(idRecepcion)
+            .orElseThrow(() -> new EntityNotFoundException("Recepcion no encontrada: " + idRecepcion));
+        return fusionLoteRepo.findByRecepcionAndActivaFalse(recepcion).stream()
+            .map(f -> construirResponse(f, obtenerLotesOrigen(f)))
+            .toList();
+    }
+
+    @Override
+    public List<FusionLoteDTO> listarTodasPorRecepcion(Long idRecepcion) {
+        RecepcionReporte recepcion = recepcionRepo.findById(idRecepcion)
+            .orElseThrow(() -> new EntityNotFoundException("Recepcion no encontrada: " + idRecepcion));
+        return fusionLoteRepo.findByRecepcion(recepcion).stream()
+            .map(f -> construirResponse(f, obtenerLotesOrigen(f)))
+            .toList();
+    }
+	
     // ---------------------- Métodos privados de apoyo ----------------------
+
     private FusionLote buscarFusion(Long id) {
         return fusionLoteRepo.findById(id)
             .orElseThrow(() -> new EntityNotFoundException("FusionLote no encontrado: " + id));
@@ -108,41 +133,44 @@ public class FusionLoteImpl implements IFusionLoteService {
         }
     }
 
-    private List<LoteOrigenReporte> cargarYValidarLotes(List<Long> idsLoteOrigen, RecepcionReporte recepcion, Long idLineaGenetica) {
-        List<LoteOrigenReporte> lotesOrigen = idsLoteOrigen.stream()
-            .map(id -> loteOrigenRepo.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("LoteOrigenReporte no encontrado: " + id)))
-            .toList();
+    private List<FusionLote> cargarYValidarFusionesOrigen(List<Long> idsFusionOrigen, RecepcionReporte recepcion, Long idLineaGenetica) {
+        List<FusionLote> fusiones = fusionLoteRepo.findAllById(idsFusionOrigen);
 
-        for (LoteOrigenReporte lote : lotesOrigen) {
-            if (!lote.getRecepcion().getIdRecepcion().equals(recepcion.getIdRecepcion())) {
-                throw new IllegalArgumentException("El lote " + lote.getIdLoteGranja() + " no pertenece a esta recepcion");
+        if (fusiones.size() != idsFusionOrigen.size()) {
+            throw new EntityNotFoundException("Una o mas fusiones de origen no existen");
+        }
+
+        for (FusionLote fusion : fusiones) {
+            if (!fusion.getActiva()) {
+                throw new IllegalArgumentException("La fusion " + fusion.getCodigoFusion() + " ya fue anulada");
             }
-            if (!lote.getIdLineaGenetica().equals(idLineaGenetica)) {
-                throw new IllegalArgumentException("El lote " + lote.getIdLoteGranja() + " no pertenece a la linea genetica " + idLineaGenetica);
+            if (!fusion.getRecepcion().getIdRecepcion().equals(recepcion.getIdRecepcion())) {
+                throw new IllegalArgumentException("La fusion " + fusion.getCodigoFusion() + " no pertenece a esta recepcion");
             }
-            if (fusionDetalleRepo.existsByLoteOrigenReporte(lote)) {
-                throw new IllegalArgumentException("El lote " + lote.getCodigoLoteGranja() + " ya pertenece a otra fusion activa");
+            if (!fusion.getIdLineaGenetica().equals(idLineaGenetica)) {
+                throw new IllegalArgumentException("La fusion " + fusion.getCodigoFusion() + " no pertenece a la linea genetica " + idLineaGenetica);
+            }
+            if (cargaRepo.existsByFusionLote(fusion)) {
+                throw new IllegalStateException("La fusion " + fusion.getCodigoFusion() + " ya tiene una carga registrada, no se puede fusionar");
             }
         }
-        return lotesOrigen;
+        return fusiones;
     }
 
-    private void aplicarTotales(FusionLote fusionLote, List<LoteOrigenReporte> lotesOrigen) {
-        int totalIncubable = lotesOrigen.stream().mapToInt(LoteOrigenReporte::getHuevosIncubablesGuia).sum();
-        int totalComercial = lotesOrigen.stream().mapToInt(LoteOrigenReporte::getHuevosComercialGuia).sum();
-        fusionLote.setHuevosIncubablesGuia(totalIncubable);
-        fusionLote.setHuevosComercialGuia(totalComercial);
+    private void aplicarTotales(FusionLote nueva, List<FusionLote> fusionesOrigen) {
+        int totalIncubable = fusionesOrigen.stream().mapToInt(FusionLote::getHuevosIncubablesGuia).sum();
+        int totalComercial = fusionesOrigen.stream().mapToInt(FusionLote::getHuevosComercialGuia).sum();
+        nueva.setHuevosIncubablesGuia(totalIncubable);
+        nueva.setHuevosComercialGuia(totalComercial);
     }
 
-    private void guardarDetalles(FusionLote fusionLote, List<LoteOrigenReporte> lotesOrigen) {
-        List<FusionLoteDetalle> detalles = lotesOrigen.stream().map(lote -> {
-            FusionLoteDetalle detalle = new FusionLoteDetalle();
-            detalle.setFusionLote(fusionLote);
-            detalle.setLoteOrigenReporte(lote);
-            return detalle;
-        }).toList();
+    private void moverDetallesYAnularOrigen(FusionLote nueva, List<FusionLote> fusionesOrigen) {
+        List<FusionLoteDetalle> detalles = fusionDetalleRepo.findByFusionLoteIn(fusionesOrigen);
+        detalles.forEach(d -> d.setFusionLote(nueva));
         fusionDetalleRepo.saveAll(detalles);
+
+        fusionesOrigen.forEach(f -> f.setActiva(false));
+        fusionLoteRepo.saveAll(fusionesOrigen);
     }
 
     private List<LoteOrigenReporte> obtenerLotesOrigen(FusionLote fusionLote) {
@@ -158,13 +186,11 @@ public class FusionLoteImpl implements IFusionLoteService {
 
         return new FusionLoteDTO(
             fusionLote.getIdFusionLote(),
-            fusionLote.getRecepcion().getIdRecepcion(),
             fusionLote.getIdLineaGenetica(),
             fusionLote.getLineaGeneticaNombre(),
             fusionLote.getCodigoFusion(),
             fusionLote.getHuevosIncubablesGuia(),
-            fusionLote.getHuevosComercialGuia(),
-            lotesDTO
+            fusionLote.getHuevosComercialGuia()
         );
     }
 }
