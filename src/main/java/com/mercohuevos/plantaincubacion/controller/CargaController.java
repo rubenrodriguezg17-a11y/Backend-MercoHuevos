@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import com.mercohuevos.plantaincubacion.dto.CargaRequestDTO;
 import com.mercohuevos.plantaincubacion.dto.CargaResponseDTO;
 import com.mercohuevos.plantaincubacion.dto.CargaDetalleResponseDTO; // <-- Agregamos esta importación
+import com.mercohuevos.plantaincubacion.dto.CargaDisponibleMirajeDTO;
 import com.mercohuevos.plantaincubacion.service.ICargaService;
 
 import jakarta.validation.Valid;
@@ -34,5 +35,11 @@ public class CargaController {
     @GetMapping
     public ResponseEntity<List<CargaDetalleResponseDTO>> listarTodos(){
     	return ResponseEntity.ok(service.listarCargas());
+    }
+   
+    @GetMapping("/miraje-disponibles")
+    public ResponseEntity<List<CargaDisponibleMirajeDTO>> listarDisponiblesParaMiraje(
+    		@RequestParam Long idLineaGenetica){
+    	return ResponseEntity.ok(service.listarDisponiblesParaMirajePorLinea(idLineaGenetica));
     }
 }

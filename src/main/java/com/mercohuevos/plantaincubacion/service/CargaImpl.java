@@ -30,7 +30,8 @@ public class CargaImpl implements ICargaService {
     private final IFusionLoteRepository fusionLoteRepo;
     private final ICategoriaEmbandejadoRepository categoriaRepo;
     private final IMaquinaRepository maquinaRepo;
-
+    private final IRegistroMirajeRepository mirajeRepo;
+    
     @Override
     @Transactional
     public CargaResponseDTO crear(CargaRequestDTO request) {
@@ -117,7 +118,20 @@ public class CargaImpl implements ICargaService {
         List<AsignacionCargaMaquina> asignaciones = asignacionRepo.findByCarga(carga);
         return construirResponseCompleto(carga, categoriasCarga, asignaciones);
     }
-
+    
+    @Override
+    public List<CargaDisponibleMirajeDTO> listarDisponiblesParaMirajePorLinea(Long idLineaGenetica) {
+        return cargaRepo.findByEstadoAndFusionLote_IdLineaGenetica(EstadoCarga.EN_INCUBACION, idLineaGenetica).stream()
+            .map(carga -> new CargaDisponibleMirajeDTO(
+                carga.getIdCarga(),
+                carga.getFusionLote().getIdFusionLote(),
+                carga.getFusionLote().getCodigoFusion(),
+                carga.getCantidadInicial(),
+                mirajeRepo.sumNoFecundadoPorCarga(carga),
+                carga.getFechaCarga()
+            ))
+            .toList();
+    }
     @Override
     public List<CargaDetalleResponseDTO> listarCargas() {
         return cargaRepo.findAll().stream()

@@ -9,12 +9,14 @@ import org.springframework.stereotype.Service;
 import com.mercohuevos.plantaincubacion.dto.MirajeResumenDTO;
 import com.mercohuevos.plantaincubacion.dto.RegistroMirajeItemDTO;
 import com.mercohuevos.plantaincubacion.dto.RegistroMirajeRequestDTO;
+import com.mercohuevos.plantaincubacion.enums.EstadoCarga;
 import com.mercohuevos.plantaincubacion.model.Carga;
 import com.mercohuevos.plantaincubacion.model.RegistroMiraje;
 import com.mercohuevos.plantaincubacion.repository.ICargaRepository;
 import com.mercohuevos.plantaincubacion.repository.IRegistroMirajeRepository;
 
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -25,8 +27,23 @@ public class RegistroMirajeImpl implements IRegistroMirajeService {
     private final ICargaRepository cargaRepo;
 
     @Override
+    @Transactional
     public MirajeResumenDTO registrar(Long idCarga, RegistroMirajeRequestDTO request) {
         Carga carga = buscarCarga(idCarga);
+
+        if (carga.getEstado() != EstadoCarga.EN_INCUBACION) {
+            throw new IllegalStateException(
+                "Solo se puede registrar miraje sobre una carga que este EN_INCUBACION. Estado actual: " + carga.getEstado());
+        }
+
+        int yaRegistrado = mirajeRepo.sumNoFecundadoPorCarga(carga);
+        int nuevoAcumulado = yaRegistrado + request.cantidadNoFecundada();
+
+        if (nuevoAcumulado > carga.getCantidadInicial()) {
+            throw new IllegalArgumentException(
+                "El acumulado de no fecundados (" + nuevoAcumulado + ") no puede superar la cantidad cargada (" +
+                carga.getCantidadInicial() + "). Ya registrado: " + yaRegistrado);
+        }
 
         RegistroMiraje registro = new RegistroMiraje();
         registro.setCarga(carga);
