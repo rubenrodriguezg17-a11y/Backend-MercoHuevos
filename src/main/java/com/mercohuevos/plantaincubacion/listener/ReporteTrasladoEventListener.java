@@ -4,7 +4,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import com.mercohuevos.common.event.ReporteTrasladoCreadoEvent;
-import com.mercohuevos.plantaincubacion.service.IRecepcionReporteService;
+import com.mercohuevos.plantaincubacion.recepcion.service.IRecepcionReporteService;
 
 import lombok.RequiredArgsConstructor;
 

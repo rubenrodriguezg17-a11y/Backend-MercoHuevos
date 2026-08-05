@@ -1,0 +1,31 @@
+package com.mercohuevos.plantaincubacion.nacimiento.controller;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import com.mercohuevos.plantaincubacion.nacimiento.dto.NacimientoResponseDTO;
+import com.mercohuevos.plantaincubacion.nacimiento.dto.RegistrarNacimientoRequestDTO;
+import com.mercohuevos.plantaincubacion.nacimiento.service.INacimientoService;
+
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+
+@RestController
+@RequestMapping("/api/plantaincubacion/cargas/{idCarga}/nacimiento")
+@RequiredArgsConstructor
+public class NacimientoController {
+
+    private final INacimientoService service;
+
+    @PostMapping
+    public ResponseEntity<NacimientoResponseDTO> registrar(
+            @PathVariable Long idCarga, @Valid @RequestBody RegistrarNacimientoRequestDTO request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.registrar(idCarga, request));
+    }
+
+    @GetMapping
+    public ResponseEntity<NacimientoResponseDTO> obtenerPorCarga(@PathVariable Long idCarga) {
+        return ResponseEntity.ok(service.obtenerPorCarga(idCarga));
+    }
+}
