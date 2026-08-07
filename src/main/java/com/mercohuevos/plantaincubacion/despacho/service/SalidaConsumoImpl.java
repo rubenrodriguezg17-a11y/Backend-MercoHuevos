@@ -15,7 +15,7 @@ import com.mercohuevos.plantaincubacion.incubacion.service.IConsumoHuevoService;
 public class SalidaConsumoImpl implements ISalidaConsumoService {
 
     private final ISalidaConsumoRepository salidaRepo;
-    private final IConsumoHuevoService consumoHuevoService;   // antes: IConsumoHuevoRepository
+    private final IConsumoHuevoService consumoHuevoService;
 
     @Override
     @Transactional
@@ -26,13 +26,14 @@ public class SalidaConsumoImpl implements ISalidaConsumoService {
         SalidaConsumo salida = new SalidaConsumo();
         salida.setFecha(request.fecha());
         salida.setCantidad(request.cantidad());
-        salida.setDestino(request.destino() != null ? request.destino() : "Molino");
+        salida.setTipoSalida(request.tipoSalida());
+        salida.setDestino(request.destino());
         salida.setObservacion(request.observacion());
         SalidaConsumo guardada = salidaRepo.save(salida);
 
         return new SalidaConsumoResponseDTO(
                 guardada.getIdSalida(), guardada.getFecha(), guardada.getCantidad(),
-                guardada.getDestino(), saldoRestante
+                guardada.getTipoSalida(), guardada.getDestino(), saldoRestante
         );
     }
 }

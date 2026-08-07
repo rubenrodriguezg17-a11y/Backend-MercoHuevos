@@ -1,12 +1,18 @@
 package com.mercohuevos.plantaincubacion.despacho.dto;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.List;
 
 public record DespachoResponseDTO(
         Long idDespacho,
-        String categoriaDespachoCodigo,
-        String cliente,
-        Integer cantidad,
+        Long idCarga,
+        Long idCliente,
+        String razonSocialCliente,
+        LocalDate fechaDespacho,
+        LocalTime horaDespacho,
+        String placaVehiculo,
+        String nombreConductor,
         String destino,
-        LocalDate fechaDespacho
+        List<DetalleDespachoLoteResponseDTO> detalles
 ) {}

@@ -1,3 +1,4 @@
+// despacho/controller/DespachoPollitosController.java
 package com.mercohuevos.plantaincubacion.despacho.controller;
 
 import java.util.List;
@@ -6,23 +7,23 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import com.mercohuevos.plantaincubacion.despacho.dto.DespachoRequestDTO;
 import com.mercohuevos.plantaincubacion.despacho.dto.DespachoResponseDTO;
-import com.mercohuevos.plantaincubacion.despacho.service.IDespachoService;
+import com.mercohuevos.plantaincubacion.despacho.dto.RegistrarDespachoRequestDTO;
+import com.mercohuevos.plantaincubacion.despacho.service.IDespachoPollitosService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/plantaincubacion/cargas/{idCarga}/despachos")
+@RequestMapping("/api/plantaincubacion/cargas/{idCarga}/despacho")
 @RequiredArgsConstructor
-public class DespachoController {
+public class DespachoPollitosController {
 
-    private final IDespachoService service;
+    private final IDespachoPollitosService service;
 
     @PostMapping
     public ResponseEntity<DespachoResponseDTO> registrar(
-            @PathVariable Long idCarga, @Valid @RequestBody DespachoRequestDTO request) {
+            @PathVariable Long idCarga, @Valid @RequestBody RegistrarDespachoRequestDTO request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.registrar(idCarga, request));
     }
 

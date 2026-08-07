@@ -1,13 +1,8 @@
 package com.mercohuevos.plantaincubacion.despacho.model;
 
 import java.time.LocalDate;
-
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import com.mercohuevos.plantaincubacion.enums.TipoSalidaConsumo;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -32,8 +27,12 @@ public class SalidaConsumo {
     @Column(name = "cantidad", nullable = false)
     private Integer cantidad;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo_salida", nullable = false)
+    private TipoSalidaConsumo tipoSalida;
+
     @Column(name = "destino")
-    private String destino;   // "Molino", texto libre por si cambia el destino algun dia
+    private String destino;
 
     @Column(name = "observacion")
     private String observacion;

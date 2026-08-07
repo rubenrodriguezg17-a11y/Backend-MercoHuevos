@@ -5,7 +5,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import com.mercohuevos.plantaincubacion.enums.OrigenConsumo;
 import com.mercohuevos.plantaincubacion.incubacion.model.StockIncubable;
+import com.mercohuevos.plantaincubacion.incubacion.service.IConsumoHuevoService;
 import com.mercohuevos.plantaincubacion.recepcion.dto.*;
 import com.mercohuevos.plantaincubacion.recepcion.model.ConteoCategoriaEmbandejado;
 import com.mercohuevos.plantaincubacion.recepcion.model.EmbandejadoGeneral;
@@ -38,6 +40,8 @@ public class EmbandejadoGeneralImpl implements IEmbandejadoGeneralService {
     private final IFusionLoteRepository fusionLoteRepo;
     private final ICategoriaEmbandejadoRepository categoriaRepo;
     private final StockIncubableMovimientoService stockMovimiento;
+    private final IConsumoHuevoService consumoHuevoService;
+
 
     @Override
     @Transactional
@@ -175,6 +179,12 @@ public class EmbandejadoGeneralImpl implements IEmbandejadoGeneralService {
 
         embandejado.setEstado(EstadoEmbandejado.PROCESADO);
         embandejadoRepo.save(embandejado);
+
+        embandejado.getLotesFusionados().forEach(detalle ->
+                consumoHuevoService.registrarIngreso(
+                        detalle.getFusionLote(), OrigenConsumo.DESCARTE_SELECCION,
+                        detalle.getSeleccionDescartada(), embandejado.getFechaEmbandejado(),
+                        "Descarte en selección - " + detalle.getFusionLote().getCodigoFusion()));
 
         recepcion.setEstado(EstadoRecepcion.PROCESADO);
         recepcionRepo.save(recepcion);

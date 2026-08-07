@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
 
+import com.mercohuevos.plantaincubacion.nacimiento.repository.IDetalleNacimientoLoteRepository;
 import org.springframework.stereotype.Service;
 
 import com.mercohuevos.plantaincubacion.enums.EstadoCarga;
@@ -28,6 +29,7 @@ public class NacimientoImpl implements INacimientoService {
     private final INacimientoRepository nacimientoRepo;
     private final ICargaService cargaService;
     private final ITransferenciaService transferenciaService;
+    private final IDetalleNacimientoLoteRepository detalleRepo;
 
     @Override
     @Transactional
@@ -90,7 +92,7 @@ public class NacimientoImpl implements INacimientoService {
             transferenciaService.liberarDetalle(detalleReq.idDetalleTransferencia());
         }
 
-        cargaService.cambiarEstado(idCarga, EstadoCarga.FINALIZADA);
+        cargaService.cambiarEstado(idCarga, EstadoCarga.EN_VACUNACION);
 
         return construirResponse(nacimiento);
     }
@@ -100,6 +102,24 @@ public class NacimientoImpl implements INacimientoService {
         Nacimiento nacimiento = nacimientoRepo.findByIdCarga(idCarga)
                 .orElseThrow(() -> new EntityNotFoundException("Esta carga aun no tiene registro de nacimiento"));
         return construirResponse(nacimiento);
+    }
+
+    @Override
+    public ClasificacionDisponibleDTO obtenerClasificacionPorDetalle(Long idDetalleNacimiento) {
+        DetalleNacimientoLote detalle = detalleRepo.findById(idDetalleNacimiento)
+                .orElseThrow(()-> new EntityNotFoundException("Detalle nacimiento no encontrado: " + idDetalleNacimiento));
+        ClasificacionPollitos c = detalle.getClasificacion();
+        CargaLoteResumenDTO lote = cargaService.obtenerLote(detalle.getIdCargaLote());
+
+        return new ClasificacionDisponibleDTO(
+                detalle.getIdDetalleNacimiento(),
+                detalle.getIdCargaLote(),
+                lote.codigoFusion(),
+                c.getMachosPrimera(),
+                c.getMachosSegunda(),
+                c.getHembrasPrimera(),
+                c.getHembrasSegunda()
+        );
     }
 
     private NacimientoResponseDTO construirResponse(Nacimiento nacimiento) {

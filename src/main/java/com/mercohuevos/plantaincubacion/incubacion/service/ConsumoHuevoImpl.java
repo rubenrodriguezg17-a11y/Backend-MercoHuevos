@@ -1,5 +1,6 @@
 package com.mercohuevos.plantaincubacion.incubacion.service;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import jakarta.transaction.Transactional;
@@ -73,6 +74,21 @@ public class ConsumoHuevoImpl implements IConsumoHuevoService {
             cantidadPorDescontar -= aDescontar;
         }
         return repository.sumSaldoTotalDisponible();
+    }
+
+    @Override
+    @Transactional
+    public void registrarIngreso(FusionLote fusionLote, OrigenConsumo origen, Integer cantidad, LocalDate fecha, String observacion) {
+        if (cantidad == null || cantidad <= 0) return;
+
+        ConsumoHuevo consumo = new ConsumoHuevo();
+        consumo.setFusionLote(fusionLote);
+        consumo.setFecha(fecha);
+        consumo.setOrigen(origen);
+        consumo.setCantidad(cantidad);
+        consumo.setCantidadDescontada(0);
+        consumo.setObservacion(observacion);
+        repository.save(consumo);
     }
 
     private int sumarPorOrigen(List<ConsumoHuevo> registros, OrigenConsumo origen) {

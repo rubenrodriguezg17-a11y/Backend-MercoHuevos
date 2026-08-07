@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import com.mercohuevos.plantaincubacion.enums.OrigenConsumo;
+import com.mercohuevos.plantaincubacion.incubacion.service.IConsumoHuevoService;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
@@ -40,6 +42,8 @@ public class RecepcionReporteImpl implements IRecepcionReporteService {
     private final IFusionLoteDetalleRepository fusionDetalleRepo;
     private final IClasificacionTipoHuevoService clasificacionService;
     private final ApplicationEventPublisher eventPublisher;
+    private final IConsumoHuevoService consumoHuevoService;
+
 
     @Override
     @Transactional
@@ -88,6 +92,10 @@ public class RecepcionReporteImpl implements IRecepcionReporteService {
 
         RecepcionReporte guardada = recepcionRepo.save(recepcion);
 
+        List<FusionLote> fusiones = fusionLoteRepo.findByRecepcionAndActivaTrue(guardada);
+        fusiones.forEach(f -> consumoHuevoService.registrarIngreso(
+                f, OrigenConsumo.COMERCIAL_GRANJA, f.getHuevosComercialGuia(),
+                guardada.getFechaReporte(), "Ingreso comercial de granja - " + f.getCodigoFusion()));
         LocalTime horaLlegada = LocalTime.now();
 
         eventPublisher.publishEvent(new ReporteRecibidoConfirmadoEvent(
