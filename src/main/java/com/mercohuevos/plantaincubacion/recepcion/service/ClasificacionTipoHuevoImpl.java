@@ -46,4 +46,18 @@ public class ClasificacionTipoHuevoImpl implements IClasificacionTipoHuevoServic
                 .map(ClasificacionTipoHuevo::isEsIncubable)
                 .orElse(false);   // si no esta configurado, por seguridad NO se asume incubable
     }
+
+    @Override
+    public List<ClasificacionTipoHuevoDTO> listarPendientesRevision() {
+        return repository.findByPendienteRevisionTrue().stream().map(mapper::toDTO).toList();
+    }
+
+    @Override
+    public ClasificacionTipoHuevoDTO validar(Long id, ClasificacionTipoHuevoRequestDTO request) {
+        ClasificacionTipoHuevo entity = repository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Clasificacion no encontrada: " + id));
+        entity.setEsIncubable(request.esIncubable());
+        entity.setPendienteRevision(false);
+        return mapper.toDTO(repository.save(entity));
+    }
 }

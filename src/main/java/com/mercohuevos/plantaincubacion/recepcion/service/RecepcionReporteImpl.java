@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 
 import com.mercohuevos.plantaincubacion.enums.OrigenConsumo;
 import com.mercohuevos.plantaincubacion.incubacion.service.IConsumoHuevoService;
+import com.mercohuevos.plantaincubacion.recepcion.dto.*;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
@@ -15,9 +16,6 @@ import com.mercohuevos.common.dto.DetalleLoteEventDTO;
 import com.mercohuevos.common.dto.ReporteRecibidoConfirmadoDTO;
 import com.mercohuevos.common.dto.ReporteTrasladoEventDTO;
 import com.mercohuevos.common.event.ReporteRecibidoConfirmadoEvent;
-import com.mercohuevos.plantaincubacion.recepcion.dto.LineaGeneticaRecepcionDTO;
-import com.mercohuevos.plantaincubacion.recepcion.dto.LoteOrigenReporteDTO;
-import com.mercohuevos.plantaincubacion.recepcion.dto.RecepcionReporteDTO;
 import com.mercohuevos.plantaincubacion.enums.EstadoRecepcion;
 import com.mercohuevos.plantaincubacion.shared.model.FusionLote;
 import com.mercohuevos.plantaincubacion.recepcion.model.FusionLoteDetalle;
@@ -43,6 +41,8 @@ public class RecepcionReporteImpl implements IRecepcionReporteService {
     private final IClasificacionTipoHuevoService clasificacionService;
     private final ApplicationEventPublisher eventPublisher;
     private final IConsumoHuevoService consumoHuevoService;
+
+    private static final int TOLERANCIA_DIFERENCIA_GUIA = 1000;
 
 
     @Override
@@ -104,6 +104,47 @@ public class RecepcionReporteImpl implements IRecepcionReporteService {
         return construirDTOCompleto(guardada);
     }
 
+    @Override
+    public ConteoComercialResponseDTO compararConteoComercial(Long idRecepcion, ConteoComercialRequestDTO request) {
+        RecepcionReporte recepcion = buscarRecepcion(idRecepcion);
+
+        List<LoteOrigenReporte> lotesOrigen = loteOrigenRepo.findByRecepcion(recepcion);
+
+        Map<Long, Integer> guiaPorLinea = lotesOrigen.stream()
+                .collect(Collectors.groupingBy(
+                        LoteOrigenReporte::getIdLineaGenetica,
+                        Collectors.summingInt(LoteOrigenReporte::getHuevosComercialGuia)));
+
+        Map<Long, String> nombrePorLinea = lotesOrigen.stream()
+                .collect(Collectors.toMap(
+                        LoteOrigenReporte::getIdLineaGenetica,
+                        LoteOrigenReporte::getLineaGeneticaNombre,
+                        (a, b) -> a));
+
+        Map<Long, Integer> contadoPorLinea = request.lineas().stream()
+                .collect(Collectors.toMap(
+                        ConteoLineaGeneticaRequestDTO::idLineaGenetica,
+                        ConteoLineaGeneticaRequestDTO::cantidadContada));
+
+        List<ComparacionLineaGeneticaDTO> comparacion = guiaPorLinea.keySet().stream()
+                .map(idLinea -> {
+                    int guia = guiaPorLinea.getOrDefault(idLinea, 0);
+                    int contado = contadoPorLinea.getOrDefault(idLinea, 0);
+                    int diferencia = contado - guia;
+                    boolean conforme = Math.abs(diferencia) <= TOLERANCIA_DIFERENCIA_GUIA;
+                    return new ComparacionLineaGeneticaDTO(
+                            idLinea, nombrePorLinea.get(idLinea), guia, contado, diferencia, conforme);
+                })
+                .toList();
+
+        int totalGuia = comparacion.stream().mapToInt(ComparacionLineaGeneticaDTO::cantidadGuia).sum();
+        int totalContado = comparacion.stream().mapToInt(ComparacionLineaGeneticaDTO::cantidadContada).sum();
+        int diferenciaTotal = totalContado - totalGuia;
+
+        return new ConteoComercialResponseDTO(
+                idRecepcion, comparacion, totalGuia, totalContado,
+                diferenciaTotal, Math.abs(diferenciaTotal) <= TOLERANCIA_DIFERENCIA_GUIA);
+    }
     private LoteOrigenReporte construirLoteOrigen(DetalleLoteEventDTO detalle, RecepcionReporte recepcion) {
         int totalIncubable = 0;
         int totalComercial = 0;

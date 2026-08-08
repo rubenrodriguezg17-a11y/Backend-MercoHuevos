@@ -35,4 +35,15 @@ public class ClasificacionTipoHuevoController {
             @PathVariable Long id, @Valid @RequestBody ClasificacionTipoHuevoRequestDTO request) {
         return ResponseEntity.ok(service.editar(id, request));
     }
+
+    @GetMapping("/pendientes")
+    public ResponseEntity<List<ClasificacionTipoHuevoDTO>> listarPendientes() {
+        return ResponseEntity.ok(service.listarPendientesRevision());
+    }
+
+    @PatchMapping("/{id}/validar")
+    public ResponseEntity<ClasificacionTipoHuevoDTO> validar(
+            @PathVariable Long id, @Valid @RequestBody ClasificacionTipoHuevoRequestDTO request) {
+        return ResponseEntity.ok(service.validar(id, request));
+    }
 }

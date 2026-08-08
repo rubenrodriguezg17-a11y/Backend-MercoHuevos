@@ -2,6 +2,9 @@ package com.mercohuevos.plantaincubacion.recepcion.controller;
 
 import java.util.List;
 
+import com.mercohuevos.plantaincubacion.recepcion.dto.ConteoComercialRequestDTO;
+import com.mercohuevos.plantaincubacion.recepcion.dto.ConteoComercialResponseDTO;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -30,5 +33,12 @@ public class RecepcionReporteController {
     @PatchMapping("/{id}/confirmar")
     public ResponseEntity<RecepcionReporteDTO> confirmarRecepcion(@PathVariable Long id) {
         return ResponseEntity.ok(service.confirmarRecepcion(id));
+    }
+
+    @PostMapping("/{id}/conteo-comercial")
+    public ResponseEntity<ConteoComercialResponseDTO> compararConteoComercial(
+            @PathVariable Long id,
+            @Valid @RequestBody ConteoComercialRequestDTO request) {
+        return ResponseEntity.ok(service.compararConteoComercial(id, request));
     }
 }

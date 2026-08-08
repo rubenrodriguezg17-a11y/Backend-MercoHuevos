@@ -72,6 +72,11 @@ public class EmbandejadoGeneralImpl implements IEmbandejadoGeneralService {
                     throw new IllegalArgumentException(
                         "La fusion " + fusionLote.getCodigoFusion() + " esta anulada y no puede embandejarse");
                 }
+                if (fusionLote.getHuevosIncubablesGuia() == null || fusionLote.getHuevosIncubablesGuia() <= 0) {
+                    throw new IllegalArgumentException(
+                            "El lote " + fusionLote.getCodigoFusion() +
+                                    " no tiene huevos incubables segun guia (solo comercial), no puede embandejarse");
+                }
                 if (!fusionLote.getIdLineaGenetica().equals(linea.idLineaGenetica())) {
                     throw new IllegalArgumentException(
                         "El fusionLote " + loteReq.idFusionLote() + " no pertenece a la linea genetica " + linea.idLineaGenetica());

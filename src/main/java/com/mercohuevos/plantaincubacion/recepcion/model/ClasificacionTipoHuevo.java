@@ -31,4 +31,7 @@ public class ClasificacionTipoHuevo {
 
     @Column(name = "es_incubable", nullable = false)
     private boolean esIncubable;
+
+    @Column(name = "pendiente_revision", nullable = false)
+    private boolean pendienteRevision = false;
 }

@@ -2,6 +2,10 @@ package com.mercohuevos.granja.service;
 
 import java.util.List;
 
+import com.mercohuevos.common.dto.TipoHuevoCreadoEventDTO;
+import com.mercohuevos.common.event.TipoHuevoCreadoEvent;
+import jakarta.transaction.Transactional;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import com.mercohuevos.granja.dto.TipoHuevoDTO;
@@ -19,12 +23,21 @@ public class TipoHuevoImpl implements ITipoHuevoService {
 
     private final ITipoHuevoRepository repository;
     private final ITipoHuevoMapper mapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
+    @Transactional
     public TipoHuevoDTO crear(TipoHuevoRequestDTO request) {
         TipoHuevo entity = mapper.toEntity(request);
         entity.setActivo(true);
-        return mapper.toDTO(repository.save(entity));
+        TipoHuevo guardado = repository.save(entity);
+
+        eventPublisher.publishEvent(new TipoHuevoCreadoEvent(
+                new TipoHuevoCreadoEventDTO(
+                        guardado.getCodigo(), guardado.getDescripcion(),
+                        guardado.getClasificacion().name())));
+
+        return mapper.toDTO(guardado);
     }
 
     @Override
@@ -38,6 +51,7 @@ public class TipoHuevoImpl implements ITipoHuevoService {
     }
 
     @Override
+    @Transactional
     public TipoHuevoDTO editar(Long id, TipoHuevoRequestDTO request) {
         TipoHuevo entity = buscarActivo(id);
         entity.setCodigo(request.codigo());
@@ -47,6 +61,7 @@ public class TipoHuevoImpl implements ITipoHuevoService {
     }
 
     @Override
+    @Transactional
     public void desactivar(Long id) {
         TipoHuevo entity = buscarActivo(id);
         entity.setActivo(false);
