@@ -2,6 +2,7 @@ package com.mercohuevos.granja.controller;
 
 import java.util.List;
 
+import com.mercohuevos.auth.annotation.RequireGranja;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -27,6 +28,7 @@ public class ReporteTrasladoController {
 
     private final IReporteTrasladoService reporteService;
 
+    @RequireGranja
     @PostMapping
     public ResponseEntity<ReporteTrasladoResponseDTO> crear(
             @Valid
@@ -46,7 +48,8 @@ public class ReporteTrasladoController {
     public ResponseEntity<List<ReporteTrasladoResponseDTO>> listarTodos() {
         return ResponseEntity.ok(reporteService.listarTodos());
     }
-    
+
+    @RequireGranja
     @PutMapping("/{id}")
     public ResponseEntity<ReporteTrasladoResponseDTO> editar(
             @PathVariable Long id, @Valid @RequestBody ReporteTrasladoRequestDTO request) {

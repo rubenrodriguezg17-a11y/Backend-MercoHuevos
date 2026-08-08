@@ -1,0 +1,7 @@
+package com.mercohuevos.auth.dto;
+
+import jakarta.validation.constraints.NotBlank;
+
+public record RefreshRequestDTO(
+        @NotBlank(message = "El refresh token es obligatorio") String refreshToken
+) {}

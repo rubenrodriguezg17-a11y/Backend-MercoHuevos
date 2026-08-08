@@ -2,6 +2,7 @@ package com.mercohuevos.granja.controller;
 
 import java.util.List;
 
+import com.mercohuevos.auth.annotation.RequireGranja;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/granja/mortalidad")
 @RequiredArgsConstructor
+@RequireGranja
 public class RegistroMortalidadController {
 
     private final IRegistroMortalidadService mortalidadService;

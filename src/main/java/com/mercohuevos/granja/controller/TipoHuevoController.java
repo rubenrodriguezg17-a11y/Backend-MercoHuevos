@@ -2,6 +2,7 @@ package com.mercohuevos.granja.controller;
 
 import java.util.List;
 
+import com.mercohuevos.auth.annotation.RequireGranja;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,6 +22,7 @@ public class TipoHuevoController {
     private final ITipoHuevoService service;
 
     @PostMapping
+    @RequireGranja
     public ResponseEntity<TipoHuevoDTO> crear(@Valid @RequestBody TipoHuevoRequestDTO request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.crear(request));
     }
@@ -34,13 +36,15 @@ public class TipoHuevoController {
     public ResponseEntity<List<TipoHuevoDTO>> listarTodos() {
         return ResponseEntity.ok(service.listarTodos());
     }
-    
+
+    @RequireGranja
     @PutMapping("/{id}")
     public ResponseEntity<TipoHuevoDTO> editar(
             @PathVariable Long id, @Valid @RequestBody TipoHuevoRequestDTO request) {
         return ResponseEntity.ok(service.editar(id, request));
     }
 
+    @RequireGranja
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> desactivar(@PathVariable Long id) {
         service.desactivar(id);
