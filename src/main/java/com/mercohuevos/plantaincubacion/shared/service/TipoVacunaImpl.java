@@ -23,30 +23,45 @@ public class TipoVacunaImpl implements ITipoVacunaService {
         TipoVacuna vacuna = new TipoVacuna();
         vacuna.setNombreVacuna(request.nombreVacuna());
         vacuna.setDosisEstandar(request.dosisEstandar());
+        vacuna.setActivo(true);
         return toDTO(repository.save(vacuna));
     }
 
     @Override
     public TipoVacunaDTO getById(Long id) {
-        return toDTO(buscar(id));
+        return toDTO(buscarActivo(id));
     }
 
     @Override
     public List<TipoVacunaDTO> getAll() {
-        return repository.findAll().stream().map(this::toDTO).toList();
+        return repository.findAll().stream()
+                .filter(TipoVacuna::getActivo)
+                .map(this::toDTO)
+                .toList();
     }
 
     @Override
     public TipoVacunaDTO edit(Long id, TipoVacunaRequestDTO request) {
-        TipoVacuna vacuna = buscar(id);
+        TipoVacuna vacuna = buscarActivo(id);
         vacuna.setNombreVacuna(request.nombreVacuna());
         vacuna.setDosisEstandar(request.dosisEstandar());
         return toDTO(repository.save(vacuna));
     }
 
-    private TipoVacuna buscar(Long id) {
-        return repository.findById(id)
+    @Override
+    public void desactivar(Long id) {
+        TipoVacuna vacuna = buscarActivo(id);
+        vacuna.setActivo(false);
+        repository.save(vacuna);
+    }
+
+    private TipoVacuna buscarActivo(Long id) {
+        TipoVacuna vacuna = repository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Tipo de vacuna no encontrado: " + id));
+        if (!vacuna.getActivo()) {
+            throw new EntityNotFoundException("Tipo de vacuna no encontrado: " + id);
+        }
+        return vacuna;
     }
 
     private TipoVacunaDTO toDTO(TipoVacuna v) {

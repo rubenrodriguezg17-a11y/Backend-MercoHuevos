@@ -1,6 +1,9 @@
 package com.mercohuevos.plantaincubacion.recepcion.controller;
 
 import java.util.List;
+
+import com.mercohuevos.auth.annotation.RequireEmbandejado;
+import com.mercohuevos.auth.annotation.RequireLogistica;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/plantaincubacion/fusiones")
 @RequiredArgsConstructor
+@RequireEmbandejado @RequireLogistica
 public class FusionLoteController {
 
     private final IFusionLoteService fusionLoteService;

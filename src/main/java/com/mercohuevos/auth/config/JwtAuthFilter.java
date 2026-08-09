@@ -1,11 +1,12 @@
 package com.mercohuevos.auth.config;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
-import jakarta.servlet.ServletException;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -14,6 +15,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import com.mercohuevos.auth.service.JwtService;
 
 import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -41,9 +43,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         if (jwtService.esValido(token)) {
             String dni = jwtService.extraerDni(token);
             String rol = jwtService.extraerRol(token);
+            String area = jwtService.extraerArea(token);
 
-            var authToken = new UsernamePasswordAuthenticationToken(
-                    dni, null, List.of(new SimpleGrantedAuthority("ROLE_" + rol)));
+            List<GrantedAuthority> authorities = new ArrayList<>();
+            authorities.add(new SimpleGrantedAuthority("ROLE_" + rol));
+            if (area != null) {
+                authorities.add(new SimpleGrantedAuthority("AREA_" + area));
+            }
+
+            var authToken = new UsernamePasswordAuthenticationToken(dni, null, authorities);
 
             SecurityContextHolder.getContext().setAuthentication(authToken);
         }

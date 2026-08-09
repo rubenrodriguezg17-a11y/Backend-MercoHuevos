@@ -10,4 +10,5 @@ public interface ITipoVacunaService {
     TipoVacunaDTO           edit(Long id, TipoVacunaRequestDTO request);
     TipoVacunaDTO           getById(Long id);
     List<TipoVacunaDTO>     getAll();
+    void                    desactivar(Long id);
 }

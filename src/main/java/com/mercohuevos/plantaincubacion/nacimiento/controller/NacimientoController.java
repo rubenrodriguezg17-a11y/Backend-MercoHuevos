@@ -1,5 +1,6 @@
 package com.mercohuevos.plantaincubacion.nacimiento.controller;
 
+import com.mercohuevos.auth.annotation.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,12 +19,14 @@ public class NacimientoController {
 
     private final INacimientoService service;
 
+    @RequireEscrituraNacimiento
     @PostMapping
     public ResponseEntity<NacimientoResponseDTO> registrar(
             @PathVariable Long idCarga, @Valid @RequestBody RegistrarNacimientoRequestDTO request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.registrar(idCarga, request));
     }
 
+    @RequireLecturaVacunacion
     @GetMapping
     public ResponseEntity<NacimientoResponseDTO> obtenerPorCarga(@PathVariable Long idCarga) {
         return ResponseEntity.ok(service.obtenerPorCarga(idCarga));

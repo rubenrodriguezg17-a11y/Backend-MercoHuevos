@@ -13,6 +13,6 @@ public interface IConsumoHuevoService {
     List<ConsumoHuevoDTO> listarPorFusionLote(Long idFusionLote);
     ConsumoHuevoResumenDTO obtenerResumenPorFusionLote(Long idFusionLote);
     int descontarSaldo(int cantidad);
+    void revertirSaldo(int cantidad);
     void registrarIngreso(FusionLote fusionLote, OrigenConsumo origen, Integer cantidad, LocalDate fecha, String observacion);
-
 }

@@ -37,7 +37,7 @@ public class OrdenVacunacionImpl implements IOrdenVacunacionService {
     @Override
     @Transactional
     public OrdenVacunacionResponseDTO registrar(Long idCarga, RegistrarOrdenVacunacionRequestDTO request) {
-        cargaService.obtenerPorId(idCarga); // valida que la carga exista
+        cargaService.obtenerPorId(idCarga);
 
         OrdenVacunacion orden = new OrdenVacunacion();
         orden.setIdCarga(idCarga);
@@ -68,10 +68,18 @@ public class OrdenVacunacionImpl implements IOrdenVacunacionService {
                     disponible.hembrasSegunda(), disponible.codigoFusion());
 
             for (DetalleVacunacionClienteLoteRequestDTO detalleReq : detallesDelLote) {
+
                 Cliente cliente = clienteRepo.findById(detalleReq.idCliente())
                         .orElseThrow(() -> new EntityNotFoundException("Cliente no encontrado: " + detalleReq.idCliente()));
+                if (!cliente.getActivo()) {
+                    throw new IllegalArgumentException("El cliente " + cliente.getRazonSocial() + " esta desactivado");
+                }
+
                 TipoVacuna vacuna = tipoVacunaRepo.findById(detalleReq.idTipoVacuna())
                         .orElseThrow(() -> new EntityNotFoundException("Tipo de vacuna no encontrado: " + detalleReq.idTipoVacuna()));
+                if (!vacuna.getActivo()) {
+                    throw new IllegalArgumentException("La vacuna " + vacuna.getNombreVacuna() + " esta desactivada");
+                }
 
                 DetalleVacunacionClienteLote detalle = new DetalleVacunacionClienteLote();
                 detalle.setOrdenVacunacion(orden);

@@ -36,4 +36,10 @@ public class SalidaConsumo {
 
     @Column(name = "observacion")
     private String observacion;
+
+    @Column(name = "saldo_restante", nullable = false)
+    private Integer saldoRestante;
+
+    @Column(name = "anulado", nullable = false)
+    private Boolean anulado = false;
 }

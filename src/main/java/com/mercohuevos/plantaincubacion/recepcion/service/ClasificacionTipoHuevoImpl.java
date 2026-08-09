@@ -60,4 +60,18 @@ public class ClasificacionTipoHuevoImpl implements IClasificacionTipoHuevoServic
         entity.setPendienteRevision(false);
         return mapper.toDTO(repository.save(entity));
     }
+    @Override
+    public ClasificacionTipoHuevoDTO obtenerPorId(Long id) {
+        ClasificacionTipoHuevo entity = repository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Clasificacion no encontrada: " + id));
+        return mapper.toDTO(entity);
+    }
+
+    @Override
+    public void eliminar(Long id) {
+        if (!repository.existsById(id)) {
+            throw new EntityNotFoundException("Clasificacion no encontrada: " + id);
+        }
+        repository.deleteById(id);
+    }
 }

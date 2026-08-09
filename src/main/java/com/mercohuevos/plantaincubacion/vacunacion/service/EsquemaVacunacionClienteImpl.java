@@ -62,13 +62,21 @@ public class EsquemaVacunacionClienteImpl implements IEsquemaVacunacionClienteSe
     }
 
     private Cliente buscarCliente(Long id) {
-        return clienteRepo.findById(id)
+        Cliente cliente = clienteRepo.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Cliente no encontrado: " + id));
+        if (!cliente.getActivo()) {
+            throw new IllegalArgumentException("El cliente " + cliente.getRazonSocial() + " esta desactivado");
+        }
+        return cliente;
     }
 
     private TipoVacuna buscarVacuna(Long id) {
-        return tipoVacunaRepo.findById(id)
+        TipoVacuna vacuna = tipoVacunaRepo.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Tipo de vacuna no encontrado: " + id));
+        if (!vacuna.getActivo()) {
+            throw new IllegalArgumentException("La vacuna " + vacuna.getNombreVacuna() + " esta desactivada");
+        }
+        return vacuna;
     }
 
     private EsquemaVacunacionCliente buscar(Long id) {

@@ -91,6 +91,24 @@ public class ConsumoHuevoImpl implements IConsumoHuevoService {
         repository.save(consumo);
     }
 
+    @Override
+    @Transactional
+    public void revertirSaldo(int cantidad) {
+        List<ConsumoHuevo> registrosConDescuento = repository.findConDescuentoOrdenadoPorFechaDesc();
+        int cantidadPorRevertir = cantidad;
+        for (ConsumoHuevo registro : registrosConDescuento) {
+            if (cantidadPorRevertir <= 0) break;
+            int aRevertir = Math.min(registro.getCantidadDescontada(), cantidadPorRevertir);
+            registro.setCantidadDescontada(registro.getCantidadDescontada() - aRevertir);
+            repository.save(registro);
+            cantidadPorRevertir -= aRevertir;
+        }
+        if (cantidadPorRevertir > 0) {
+            throw new IllegalStateException(
+                    "No se pudo revertir el saldo completo: quedan " + cantidadPorRevertir + " sin revertir");
+        }
+    }
+
     private int sumarPorOrigen(List<ConsumoHuevo> registros, OrigenConsumo origen) {
         return registros.stream()
                 .filter(r -> r.getOrigen() == origen)

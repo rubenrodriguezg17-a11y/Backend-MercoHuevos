@@ -203,6 +203,27 @@ public class EmbandejadoGeneralImpl implements IEmbandejadoGeneralService {
             .orElseThrow(() -> new EntityNotFoundException("Embandejado no encontrado: " + id)));
     }
 
+    @Override
+    public List<EmbandejadoGeneralResponseDTO> listarTodos() {
+        return embandejadoRepo.findAll().stream()
+                .map(this::construirResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public EmbandejadoGeneralResponseDTO editar(Long id, EmbandejadoGeneralRequestDTO request) {
+        EmbandejadoGeneral existente = embandejadoRepo.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Embandejado no encontrado: " + id));
+
+        if (!existente.getRecepcion().getIdRecepcion().equals(request.idRecepcion())) {
+            throw new IllegalArgumentException(
+                    "El idRecepcion del request no coincide con el embandejado " + id);
+        }
+
+        return guardar(request);
+    }
+
     private EmbandejadoGeneralResponseDTO construirResponse(EmbandejadoGeneral embandejado) {
         Map<Long, List<EmbandejadoLoteFusion>> agrupadoPorGenetica = embandejado.getLotesFusionados().stream()
             .collect(Collectors.groupingBy(d -> d.getFusionLote().getIdLineaGenetica()));

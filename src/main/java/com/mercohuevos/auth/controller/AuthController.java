@@ -23,7 +23,7 @@ public class AuthController {
         service.crearPassword(request);
     }
 
-    @PostMapping("/token")
+    @PostMapping("/login")
     public TokenResponseDTO login(@Valid @RequestBody LoginRequestDTO request) {
         return service.login(request);
     }

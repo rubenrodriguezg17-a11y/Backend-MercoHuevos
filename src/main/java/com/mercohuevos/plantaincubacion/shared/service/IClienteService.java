@@ -10,4 +10,5 @@ public interface IClienteService {
     ClienteDTO          edit(ClienteRequestDTO request, Long id);
     ClienteDTO          getById(Long id);
     List<ClienteDTO>    getAllClientes();
+    void                desactivar(Long id);
 }

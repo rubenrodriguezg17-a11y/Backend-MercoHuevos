@@ -24,4 +24,7 @@ public class Cliente {
 
     @Column(name = "contacto")
     private String contacto;
+
+    @Column(name = "activo", nullable = false)
+    private Boolean activo = true;
 }

@@ -103,6 +103,14 @@ public class MirajeImpl implements IMirajeService {
         return cargaLote.getCantidadInicial() - infertiles;
     }
 
+    @Override
+    public MirajeResponseDTO obtenerPorId(Long idCarga, Long idMiraje) {
+        Miraje miraje = mirajeRepo.findByIdMirajeAndCarga_IdCarga(idMiraje, idCarga)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Miraje no encontrado: " + idMiraje + " para la carga " + idCarga));
+        return construirResponse(miraje);
+    }
+
     private MirajeResponseDTO construirResponse(Miraje miraje) {
         List<DetalleMirajeLoteResponseDTO> detallesDTO = miraje.getDetalles().stream()
                 .map(this::construirDetalleResponse)

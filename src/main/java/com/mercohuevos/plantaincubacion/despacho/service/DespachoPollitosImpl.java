@@ -43,7 +43,9 @@ public class DespachoPollitosImpl implements IDespachoPollitosService {
 
         Cliente cliente = clienteRepo.findById(request.idCliente())
                 .orElseThrow(() -> new EntityNotFoundException("Cliente no encontrado: " + request.idCliente()));
-
+        if (!cliente.getActivo()) {
+            throw new IllegalArgumentException("El cliente " + cliente.getRazonSocial() + " esta desactivado");
+        }
         DespachoPollitos despacho = new DespachoPollitos();
         despacho.setIdCarga(idCarga);
         despacho.setCliente(cliente);
@@ -92,6 +94,22 @@ public class DespachoPollitosImpl implements IDespachoPollitosService {
         return construirResponse(despacho);
     }
 
+    @Override
+    public DespachoResponseDTO obtenerPorId(Long idCarga, Long idDespacho) {
+        DespachoPollitos despacho = despachoRepo.findByIdDespachoAndIdCarga(idDespacho, idCarga)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Despacho no encontrado: " + idDespacho + " para la carga " + idCarga));
+        return construirResponse(despacho);
+    }
+
+    @Override
+    public List<DespachoResponseDTO> listarPorCarga(Long idCarga) {
+        return despachoRepo.findByIdCargaOrderByFechaDespachoAsc(idCarga).stream()
+                .map(this::construirResponse)
+                .toList();
+    }
+
+
     private void validarNoSupera(String etiqueta, int totalConEsteDespacho, int vacunado) {
         if (totalConEsteDespacho > vacunado) {
             throw new IllegalArgumentException(
@@ -109,12 +127,6 @@ public class DespachoPollitosImpl implements IDespachoPollitosService {
         return true;
     }
 
-    @Override
-    public List<DespachoResponseDTO> listarPorCarga(Long idCarga) {
-        return despachoRepo.findByIdCargaOrderByFechaDespachoAsc(idCarga).stream()
-                .map(this::construirResponse)
-                .toList();
-    }
 
     private DespachoResponseDTO construirResponse(DespachoPollitos despacho) {
         List<DetalleDespachoLoteResponseDTO> detallesDTO = despacho.getDetalles().stream()

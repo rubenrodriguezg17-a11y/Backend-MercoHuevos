@@ -12,4 +12,6 @@ public interface IClasificacionTipoHuevoService {
     boolean                                 esIncubable(String codigo);
     List<ClasificacionTipoHuevoDTO>         listarPendientesRevision();
     ClasificacionTipoHuevoDTO               validar(Long id, ClasificacionTipoHuevoRequestDTO request);
+    ClasificacionTipoHuevoDTO               obtenerPorId(Long id);
+    void                                     eliminar(Long id);
 }

@@ -2,6 +2,7 @@ package com.mercohuevos.plantaincubacion.incubacion.controller;
 
 import java.util.List;
 
+import com.mercohuevos.auth.annotation.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,12 +21,14 @@ public class MonitoreoAmbientalController {
 
     private final IMonitoreoAmbientalService service;
 
+    @RequireEscrituraEmbandejado
     @PostMapping
     public ResponseEntity<MonitoreoAmbientalResponseDTO> registrar(
             @PathVariable Long idMaquina, @Valid @RequestBody MonitoreoAmbientalRequestDTO request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.registrar(idMaquina, request));
     }
 
+    @RequireLecturaEmbandejado
     @GetMapping
     public ResponseEntity<List<MonitoreoAmbientalResponseDTO>> listarPorMaquina(@PathVariable Long idMaquina) {
         return ResponseEntity.ok(service.listarPorMaquina(idMaquina));

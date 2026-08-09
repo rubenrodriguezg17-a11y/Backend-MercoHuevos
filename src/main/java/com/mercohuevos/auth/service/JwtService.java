@@ -1,7 +1,7 @@
-// auth/service/JwtService.java
 package com.mercohuevos.auth.service;
 
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 import javax.crypto.SecretKey;
 
@@ -22,9 +22,20 @@ public class JwtService {
     @Value("${mercohuevos.jwt.access-expiration-ms}")
     private long accessExpirationMs;
 
-    public String generateAccessToken(String dni, String rol) {
+    /**
+     * Genera el access token incluyendo el rol y, si corresponde, el area
+     * del usuario (GRANJA / PLANTA_INCUBACION). El area puede ser null
+     * (por ejemplo para ADMIN, que no esta atado a una sola area).
+     */
+    public String generateAccessToken(String dni, String rol, String area) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("rol", rol);
+        if (area != null) {
+            claims.put("area", area);
+        }
+
         return Jwts.builder()
-                .claims(Map.of("rol", rol))
+                .claims(claims)
                 .subject(dni)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + accessExpirationMs))
@@ -38,6 +49,14 @@ public class JwtService {
 
     public String extraerRol(String token) {
         return parseClaims(token).get("rol", String.class);
+    }
+
+    /**
+     * Devuelve el area del usuario contenida en el token, o null si no
+     * tiene una area asignada (ej. ADMIN).
+     */
+    public String extraerArea(String token) {
+        return parseClaims(token).get("area", String.class);
     }
 
     public boolean esValido(String token) {

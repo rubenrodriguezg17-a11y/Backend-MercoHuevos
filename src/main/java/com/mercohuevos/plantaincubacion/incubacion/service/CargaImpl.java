@@ -39,6 +39,7 @@ public class CargaImpl implements ICargaService {
     private final ICategoriaEmbandejadoRepository categoriaRepo;
     private final IMaquinaRepository maquinaRepo;
     private final IDetalleMirajeLoteRepository detalleMirajeRepo;
+    private final IMirajeRepository mirajeRepo;
 
     @Override
     @Transactional
@@ -191,6 +192,135 @@ public class CargaImpl implements ICargaService {
                         carga, categoriaCargaRepo.findByCarga(carga), asignacionRepo.findByCarga(carga)))
                 .toList();
     }
+    // incubacion/service/CargaImpl.java — agregar 3 métodos nuevos, antes de "// ---------------------- métodos privados de apoyo ----------------------"
+
+    @Override
+    @Transactional
+    public CargaResponseDTO editar(Long id, CargaRequestDTO request) {
+        Carga carga = buscarCarga(id);
+
+        if (mirajeRepo.existsByCarga(carga)) {
+            throw new IllegalStateException("No se puede editar: esta carga ya tiene miraje registrado");
+        }
+        if (request.lineasGeneticas().size() != 1) {
+            throw new IllegalArgumentException(
+                    "La edicion de una carga solo admite la linea genetica ya asociada a ella");
+        }
+        LineaGeneticaCargaRequestDTO lineaReq = request.lineasGeneticas().get(0);
+        if (!lineaReq.idLineaGenetica().equals(carga.getIdLineaGenetica())) {
+            throw new IllegalArgumentException(
+                    "La linea genetica del request no coincide con la de la carga " + id);
+        }
+
+        List<CategoriaCarga> categoriasPrevias = categoriaCargaRepo.findByCarga(carga);
+        revertirStockYAsociaciones(carga, categoriasPrevias);
+
+        carga.setCantidadInicial(0);
+        carga.setFechaCarga(request.fechaCarga());
+        carga.setFechaTransferenciaNacedora(request.fechaCarga().plusDays(18));
+        carga.setFechaNacimiento(request.fechaCarga().plusDays(21));
+
+        List<LoteFusionCargaResponseDTO> lotesDTO = new ArrayList<>();
+
+        for (LoteFusionCargaRequestDTO loteReq : lineaReq.lotesFusion()) {
+            FusionLote fusionLote = fusionLoteRepo.findById(loteReq.idFusionLote())
+                    .orElseThrow(() -> new EntityNotFoundException("FusionLote no encontrado: " + loteReq.idFusionLote()));
+
+            if (!fusionLote.getActiva()) {
+                throw new IllegalArgumentException("La fusion " + fusionLote.getCodigoFusion() + " esta anulada");
+            }
+            if (!fusionLote.getIdLineaGenetica().equals(lineaReq.idLineaGenetica())) {
+                throw new IllegalArgumentException(
+                        "El fusionLote " + loteReq.idFusionLote() + " no pertenece a la linea genetica " + lineaReq.idLineaGenetica());
+            }
+
+            CargaLote cargaLote = obtenerOCrearCargaLote(carga, fusionLote);
+            List<CategoriaCargaResponseDTO> categoriasDTO = new ArrayList<>();
+
+            for (CategoriaCargaRequestDTO catReq : loteReq.categoriasCargadas()) {
+                CategoriaEmbandejado categoria = categoriaRepo.findById(catReq.idCategoriaEmbandejado())
+                        .orElseThrow(() -> new EntityNotFoundException("Categoria no encontrada: " + catReq.idCategoriaEmbandejado()));
+
+                Maquina maquina = maquinaRepo.findById(catReq.idMaquina())
+                        .orElseThrow(() -> new EntityNotFoundException("Maquina no encontrada: " + catReq.idMaquina()));
+
+                if (maquina.getTipo() != TipoMaquina.INCUBADORA) {
+                    throw new IllegalArgumentException("La maquina " + maquina.getNumero() + " no es una incubadora");
+                }
+
+                StockIncubable stock = stockMovimiento.obtenerOCrearStockDeHoy(fusionLote, categoria);
+                if (stock.getStockActual() < catReq.cantidadCargada()) {
+                    throw new IllegalArgumentException(
+                            "Stock insuficiente en " + fusionLote.getCodigoFusion() + " / " + categoria.getCodigoCategoria() +
+                                    ". Disponible: " + stock.getStockActual() + ", solicitado: " + catReq.cantidadCargada());
+                }
+
+                validarCapacidadMaquina(maquina, catReq.cantidadCargada());
+
+                CategoriaCarga cc = registrarCategoriaCarga(carga, fusionLote, categoria, maquina, catReq.cantidadCargada());
+                acumularAsignacionMaquina(carga, maquina, catReq.cantidadCargada());
+
+                stock.setCargaIncubadora(stock.getCargaIncubadora() + catReq.cantidadCargada());
+                stockMovimiento.recalcularStockActual(stock);
+                stockMovimiento.guardar(stock);
+
+                cargaLote.setCantidadInicial(cargaLote.getCantidadInicial() + catReq.cantidadCargada());
+                carga.setCantidadInicial(carga.getCantidadInicial() + catReq.cantidadCargada());
+
+                categoriasDTO.add(new CategoriaCargaResponseDTO(
+                        categoria.getIdCategoriaEmbandejado(),
+                        categoria.getCodigoCategoria(),
+                        cc.getCantidadInicial(),
+                        maquina.getIdMaquina(),
+                        String.valueOf(maquina.getNumero())
+                ));
+            }
+
+            cargaLoteRepo.save(cargaLote);
+
+            int totalLote = categoriasDTO.stream().mapToInt(CategoriaCargaResponseDTO::cantidadCargada).sum();
+            lotesDTO.add(new LoteFusionCargaResponseDTO(
+                    fusionLote.getIdFusionLote(), fusionLote.getCodigoFusion(), totalLote, categoriasDTO));
+        }
+
+        cargaRepo.save(carga);
+
+        int totalLinea = lotesDTO.stream().mapToInt(LoteFusionCargaResponseDTO::totalCargadoLote).sum();
+        return new CargaResponseDTO(carga.getFechaCarga(), totalLinea, List.of(
+                new LineaGeneticaCargaResponseDTO(carga.getIdLineaGenetica(), carga.getLineaGeneticaNombre(), totalLinea, lotesDTO)));
+    }
+
+    @Override
+    @Transactional
+    public void anular(Long id) {
+        Carga carga = buscarCarga(id);
+
+        if (mirajeRepo.existsByCarga(carga)) {
+            throw new IllegalStateException("No se puede anular: esta carga ya tiene miraje registrado");
+        }
+        if (carga.getEstado() == EstadoCarga.ANULADA) {
+            throw new IllegalStateException("Esta carga ya fue anulada anteriormente");
+        }
+
+        List<CategoriaCarga> categorias = categoriaCargaRepo.findByCarga(carga);
+        revertirStockYAsociaciones(carga, categorias);
+
+        carga.setCantidadInicial(0);
+        carga.setEstado(EstadoCarga.ANULADA);
+        cargaRepo.save(carga);
+    }
+
+    private void revertirStockYAsociaciones(Carga carga, List<CategoriaCarga> categorias) {
+        for (CategoriaCarga cc : categorias) {
+            StockIncubable stock = stockMovimiento.obtenerOCrearStockDeHoy(cc.getFusionLote(), cc.getCategoriaEmbandejado());
+            stock.setCargaIncubadora(stock.getCargaIncubadora() - cc.getCantidadInicial());
+            stockMovimiento.recalcularStockActual(stock);
+            stockMovimiento.guardar(stock);
+        }
+        asignacionRepo.deleteAll(asignacionRepo.findByCarga(carga));
+        cargaLoteRepo.deleteAll(cargaLoteRepo.findByCarga(carga));
+        categoriaCargaRepo.deleteAll(categorias);
+    }
 
     // ---------------------- métodos privados de apoyo ----------------------
 
@@ -279,7 +409,6 @@ public class CargaImpl implements ICargaService {
     private CargaDetalleResponseDTO construirResponseCompleto(
             Carga carga, List<CategoriaCarga> categoriasCarga, List<AsignacionCargaMaquina> asignaciones) {
 
-        // agrupar categorias por lote (fusionLote) para el detalle
         var porLote = categoriasCarga.stream()
                 .collect(java.util.stream.Collectors.groupingBy(CategoriaCarga::getFusionLote));
 

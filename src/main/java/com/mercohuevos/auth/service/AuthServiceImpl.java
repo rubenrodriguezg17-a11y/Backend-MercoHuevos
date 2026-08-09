@@ -79,7 +79,10 @@ public class AuthServiceImpl implements IAuthService {
         usuario.setIntentosFallidos(0);
         usuarioRepo.save(usuario);
 
-        String accessToken = jwtService.generateAccessToken(usuario.getDni(), usuario.getRol().name());
+        String accessToken = jwtService.generateAccessToken(
+                usuario.getDni(),
+                usuario.getRol().name(),
+                usuario.getArea() != null ? usuario.getArea().name() : null);
         RefreshToken refreshToken = refreshTokenService.crear(usuario);
 
         return new TokenResponseDTO(
@@ -93,7 +96,10 @@ public class AuthServiceImpl implements IAuthService {
         RefreshToken refreshToken = refreshTokenService.validarYObtener(request.refreshToken());
         Usuario usuario = refreshToken.getUsuario();
 
-        String nuevoAccessToken = jwtService.generateAccessToken(usuario.getDni(), usuario.getRol().name());
+        String nuevoAccessToken = jwtService.generateAccessToken(
+                usuario.getDni(),
+                usuario.getRol().name(),
+                usuario.getArea() != null ? usuario.getArea().name() : null);
 
         return new TokenResponseDTO(
                 nuevoAccessToken, refreshToken.getToken(),

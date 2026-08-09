@@ -2,6 +2,7 @@ package com.mercohuevos.plantaincubacion.recepcion.controller;
 
 import java.util.List;
 
+import com.mercohuevos.auth.annotation.*;
 import com.mercohuevos.plantaincubacion.recepcion.dto.ConteoComercialRequestDTO;
 import com.mercohuevos.plantaincubacion.recepcion.dto.ConteoComercialResponseDTO;
 import jakarta.validation.Valid;
@@ -20,21 +21,25 @@ public class RecepcionReporteController {
 
     private final IRecepcionReporteService service;
 
+    @RequireLecturaEmbandejado
     @GetMapping("/{id}")
     public ResponseEntity<RecepcionReporteDTO> obtenerPorId(@PathVariable Long id) {
         return ResponseEntity.ok(service.obtenerPorId(id));
     }
 
+    @RequireLecturaEmbandejado
     @GetMapping
     public ResponseEntity<List<RecepcionReporteDTO>> listarTodos() {
         return ResponseEntity.ok(service.listarTodos());
     }
 
+    @RequireEscrituraEmbandejado
     @PatchMapping("/{id}/confirmar")
     public ResponseEntity<RecepcionReporteDTO> confirmarRecepcion(@PathVariable Long id) {
         return ResponseEntity.ok(service.confirmarRecepcion(id));
     }
 
+    @RequireEscrituraEmbandejado
     @PostMapping("/{id}/conteo-comercial")
     public ResponseEntity<ConteoComercialResponseDTO> compararConteoComercial(
             @PathVariable Long id,

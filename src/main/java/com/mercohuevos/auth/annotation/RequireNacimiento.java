@@ -5,5 +5,5 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
-@PreAuthorize("hasAnyRole('ADMIN','ENCARGADO_NACIMIENTO','LOGISTICA_INCUBACION')")
+@PreAuthorize("hasAnyRole('ENCARGADO_NACIMIENTO','LOGISTICA_INCUBACION')")
 public @interface RequireNacimiento {}

@@ -2,7 +2,7 @@ package com.mercohuevos.granja.controller;
 
 import java.util.List;
 
-import com.mercohuevos.auth.annotation.RequireGranja;
+import com.mercohuevos.auth.annotation.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -27,11 +27,12 @@ public class TipoHuevoController {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.crear(request));
     }
 
+    @RequireLecturaTipoHuevo
     @GetMapping("/{id}")
     public ResponseEntity<TipoHuevoDTO> obtenerPorId(@PathVariable Long id) {
         return ResponseEntity.ok(service.obtenerPorId(id));
     }
-
+    @RequireLecturaTipoHuevo
     @GetMapping
     public ResponseEntity<List<TipoHuevoDTO>> listarTodos() {
         return ResponseEntity.ok(service.listarTodos());

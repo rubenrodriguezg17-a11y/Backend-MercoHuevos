@@ -9,4 +9,5 @@ public interface IMirajeService {
     MirajeResponseDTO               registrar(Long idCarga, RegistrarMirajeRequestDTO request);
     List<MirajeResponseDTO>         listarPorCarga(Long idCarga);
     Integer                         obtenerHuevosViablesPorCargaLote(Long idCargaLote);
+    MirajeResponseDTO               obtenerPorId(Long idCarga, Long idMiraje);
 }

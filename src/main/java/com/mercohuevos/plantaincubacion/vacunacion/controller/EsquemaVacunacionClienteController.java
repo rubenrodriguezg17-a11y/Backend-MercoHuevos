@@ -1,7 +1,7 @@
 package com.mercohuevos.plantaincubacion.vacunacion.controller;
 
 import java.util.List;
-
+import com.mercohuevos.auth.annotation.RequireVacunacion;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/plantaincubacion/esquemas-vacunacion")
 @RequiredArgsConstructor
+@RequireVacunacion
 public class EsquemaVacunacionClienteController {
 
     private final IEsquemaVacunacionClienteService service;

@@ -24,4 +24,7 @@ public class TipoVacuna {
 
     @Column(name = "dosis_estandar", nullable = false)
     private String dosisEstandar;
+
+    @Column(name = "activo", nullable = false)
+    private Boolean activo = true;
 }
