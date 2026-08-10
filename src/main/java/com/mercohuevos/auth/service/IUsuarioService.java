@@ -8,4 +8,5 @@ public interface IUsuarioService {
     UsuarioDTO          crear(CrearUsuarioRequestDTO request);
     List<UsuarioDTO>    listarTodos();
     UsuarioDTO          desbloquear(Long id);
+    UsuarioDTO          obtenerPorDni(String dni);
 }

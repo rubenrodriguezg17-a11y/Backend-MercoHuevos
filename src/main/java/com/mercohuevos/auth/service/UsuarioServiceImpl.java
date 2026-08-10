@@ -1,4 +1,3 @@
-// auth/service/UsuarioServiceImpl.java — crear ya no setea password
 package com.mercohuevos.auth.service;
 
 import java.util.List;
@@ -44,6 +43,13 @@ public class UsuarioServiceImpl implements IUsuarioService {
         usuario.setBloqueado(false);
         usuario.setIntentosFallidos(0);
         return toDTO(repository.save(usuario));
+    }
+
+    @Override
+    public UsuarioDTO obtenerPorDni(String dni) {
+        Usuario usuario = repository.findByDni(dni)
+                .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado: " + dni));
+        return toDTO(usuario);
     }
 
     private UsuarioDTO toDTO(Usuario u) {

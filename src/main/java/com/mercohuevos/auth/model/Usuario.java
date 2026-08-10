@@ -3,6 +3,7 @@ package com.mercohuevos.auth.model;
 import com.mercohuevos.auth.enums.Area;
 import com.mercohuevos.auth.enums.Rol;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Pattern;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -17,7 +18,7 @@ public class Usuario {
     @Column(name = "id_usuario")
     private Long idUsuario;
 
-    @Column(name = "dni", nullable = false, length = 15)
+    @Column(name = "dni",length = 8, nullable = false, columnDefinition = "VARCHAR(8) NOT NULL CHECK (LENGTH(dni) = 8)")
     private String dni;
 
     @Column(name = "nombre_completo", nullable = false)
