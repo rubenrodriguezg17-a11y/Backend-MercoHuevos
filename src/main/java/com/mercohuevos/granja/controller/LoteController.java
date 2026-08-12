@@ -42,8 +42,8 @@ public class LoteController {
         return ResponseEntity.ok(service.listarTodos());
     }
 
-    @RequireAdmin
-    @RequireGranja
+
+    @RequireGranjaAdmin
     @PutMapping("/{id}")
     public ResponseEntity<LoteDTO> editar(
             @PathVariable Long id, @Valid @RequestBody LoteRequestDTO request) {

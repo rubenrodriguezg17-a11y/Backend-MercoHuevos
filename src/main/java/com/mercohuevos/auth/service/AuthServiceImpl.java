@@ -87,7 +87,9 @@ public class AuthServiceImpl implements IAuthService {
 
         return new TokenResponseDTO(
                 accessToken, refreshToken.getToken(),
-                usuario.getNombreCompleto(), usuario.getRol().name());
+                usuario.getNombreCompleto(),
+                usuario.getRol().name(),
+                usuario.getArea() != null ? usuario.getArea().name() : null);
     }
 
     @Override
@@ -102,8 +104,11 @@ public class AuthServiceImpl implements IAuthService {
                 usuario.getArea() != null ? usuario.getArea().name() : null);
 
         return new TokenResponseDTO(
-                nuevoAccessToken, refreshToken.getToken(),
-                usuario.getNombreCompleto(), usuario.getRol().name());
+                nuevoAccessToken,
+                refreshToken.getToken(),
+                usuario.getNombreCompleto(),
+                usuario.getRol().name(),
+                usuario.getArea() != null ? usuario.getArea().name() : null);
     }
 
     @Override

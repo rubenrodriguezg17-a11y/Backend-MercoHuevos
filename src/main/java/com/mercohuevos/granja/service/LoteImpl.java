@@ -88,7 +88,10 @@ public class LoteImpl implements ILoteService {
         int poblacionActual = lote.getCantidadAvesInicial() - totalMortalidad;
 
         return new LoteDTO(
-                base.idLote(), base.codigoLote(), base.lineaGeneticaNombre(),
+                base.idLote(),
+                base.codigoLote(),
+                base.idLineaGenetica(),
+                base.lineaGeneticaNombre(),
                 base.fechaIngreso(), base.cantidadAvesInicial(), base.galpon(), base.estado(),
                 totalMortalidad, poblacionActual
         );
