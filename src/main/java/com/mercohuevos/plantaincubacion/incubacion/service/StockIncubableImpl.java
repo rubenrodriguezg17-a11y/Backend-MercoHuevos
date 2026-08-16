@@ -67,8 +67,7 @@ public class StockIncubableImpl implements IStockIncubableService {
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Categoria de embandejado no encontrada: " + request.idCategoriaEmbandejado()));
 
-        StockIncubable stock = stockMovimiento.obtenerOCrearStockDeHoy(fusionLote, categoria);
-
+        StockIncubable stock = stockMovimiento.obtenerOCrear(fusionLote, categoria, request.fecha());
         if (stock.getStockActual() < request.cantidad()) {
             throw new IllegalArgumentException(
                     "Stock insuficiente para pasar a carton. Disponible: " + stock.getStockActual() +
@@ -78,10 +77,11 @@ public class StockIncubableImpl implements IStockIncubableService {
         stock.setPasadoACarton(stock.getPasadoACarton() + request.cantidad());
         stockMovimiento.recalcularStockActual(stock);
         StockIncubable actualizado = stockMovimiento.guardar(stock);
+        stockMovimiento.recalcularEnCascadaDesde(actualizado);
 
         ConsumoHuevo consumo = new ConsumoHuevo();
         consumo.setFusionLote(fusionLote);
-        consumo.setFecha(LocalDate.now());
+        consumo.setFecha(request.fecha());
         consumo.setOrigen(OrigenConsumo.PASADO_A_CARTON);
         consumo.setCantidad(request.cantidad());
         consumo.setObservacion(request.observacion() != null ? request.observacion() : "Pasado a carton manual");

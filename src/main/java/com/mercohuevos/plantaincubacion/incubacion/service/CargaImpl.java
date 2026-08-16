@@ -86,7 +86,7 @@ public class CargaImpl implements ICargaService {
                         throw new IllegalArgumentException("La maquina " + maquina.getNumero() + " no es una incubadora");
                     }
 
-                    StockIncubable stock = stockMovimiento.obtenerOCrearStockDeHoy(fusionLote, categoria);
+                    StockIncubable stock = stockMovimiento.obtenerOCrear(fusionLote, categoria, request.fechaCarga());
                     if (stock.getStockActual() < catReq.cantidadCargada()) {
                         throw new IllegalArgumentException(
                                 "Stock insuficiente en " + fusionLote.getCodigoFusion() + " / " + categoria.getCodigoCategoria() +
@@ -101,6 +101,7 @@ public class CargaImpl implements ICargaService {
                     stock.setCargaIncubadora(stock.getCargaIncubadora() + catReq.cantidadCargada());
                     stockMovimiento.recalcularStockActual(stock);
                     stockMovimiento.guardar(stock);
+                    stockMovimiento.recalcularEnCascadaDesde(stock);
 
                     cargaLote.setCantidadInicial(cargaLote.getCantidadInicial() + catReq.cantidadCargada());
                     carga.setCantidadInicial(carga.getCantidadInicial() + catReq.cantidadCargada());
@@ -192,7 +193,6 @@ public class CargaImpl implements ICargaService {
                         carga, categoriaCargaRepo.findByCarga(carga), asignacionRepo.findByCarga(carga)))
                 .toList();
     }
-    // incubacion/service/CargaImpl.java — agregar 3 métodos nuevos, antes de "// ---------------------- métodos privados de apoyo ----------------------"
 
     @Override
     @Transactional

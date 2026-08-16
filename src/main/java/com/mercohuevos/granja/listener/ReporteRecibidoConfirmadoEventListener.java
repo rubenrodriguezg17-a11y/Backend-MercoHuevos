@@ -1,5 +1,7 @@
 package com.mercohuevos.granja.listener;
 
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.stereotype.Component;
@@ -17,6 +19,7 @@ public class ReporteRecibidoConfirmadoEventListener {
     private final IReporteTrasladoRepository reporteRepo;
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onRecepcionConfirmada(ReporteRecibidoConfirmadoEvent evento) {
         reporteRepo.findById(evento.getData().idReporteGranja())
                 .ifPresent(reporte -> {

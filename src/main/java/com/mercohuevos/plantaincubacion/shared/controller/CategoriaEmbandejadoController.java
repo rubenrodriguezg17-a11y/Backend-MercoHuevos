@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.mercohuevos.auth.annotation.RequireAdmin;
 import com.mercohuevos.auth.annotation.RequireEmbandejado;
+import com.mercohuevos.auth.annotation.RequireEscrituraEmbandejado;
 import com.mercohuevos.auth.annotation.RequirePlantaIncubacion;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,14 +30,14 @@ public class CategoriaEmbandejadoController {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.crear(request));
     }
 
-    @RequirePlantaIncubacion @RequireEmbandejado
+    @RequireEscrituraEmbandejado
     @GetMapping("/{id}")
     public ResponseEntity<CategoriaEmbandejadoDTO> obtenerPorId(@PathVariable Long id) {
         return ResponseEntity.ok(service.obtenerPorId(id));
     }
 
-    @RequirePlantaIncubacion @RequireEmbandejado
     @GetMapping
+    @RequireEscrituraEmbandejado
     public ResponseEntity<List<CategoriaEmbandejadoDTO>> listarTodos() {
         return ResponseEntity.ok(service.listarTodos());
     }

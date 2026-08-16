@@ -25,4 +25,7 @@ public interface IStockIncubableRepository extends JpaRepository<StockIncubable,
     List<StockIncubable> findByFechaBetween(LocalDate inicio, LocalDate fin);
     
     List<StockIncubable> findByFechaLessThanEqual(LocalDate fecha);
+
+    List<StockIncubable> findByFusionLoteAndCategoriaEmbandejadoAndFechaGreaterThanOrderByFechaAsc(
+            FusionLote fusionLote, CategoriaEmbandejado categoria, LocalDate fecha);
 }

@@ -31,7 +31,6 @@ public class EmbandejadoGeneralController {
         return ResponseEntity.ok(embandejadoService.confirmar(id));
     }
     @RequireEmbandejado
-    @RequireAdmin
     @GetMapping("/{id}")
     public ResponseEntity<EmbandejadoGeneralResponseDTO> obtenerPorId(@PathVariable Long id) {
         return ResponseEntity.ok(embandejadoService.obtenerPorId(id));

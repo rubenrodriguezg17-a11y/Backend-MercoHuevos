@@ -6,14 +6,11 @@ import com.mercohuevos.auth.annotation.RequireAdmin;
 import com.mercohuevos.auth.annotation.RequireEmbandejado;
 import com.mercohuevos.auth.annotation.RequireLecturaEmbandejado;
 import com.mercohuevos.auth.annotation.RequirePlantaIncubacion;
+import com.mercohuevos.plantaincubacion.incubacion.dto.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import com.mercohuevos.plantaincubacion.incubacion.dto.CargaRequestDTO;
-import com.mercohuevos.plantaincubacion.incubacion.dto.CargaResponseDTO;
-import com.mercohuevos.plantaincubacion.incubacion.dto.CargaDetalleResponseDTO; // <-- Agregamos esta importación
-import com.mercohuevos.plantaincubacion.incubacion.dto.CargaDisponibleMirajeDTO;
 import com.mercohuevos.plantaincubacion.incubacion.service.ICargaService;
 
 import jakarta.validation.Valid;
@@ -63,5 +60,11 @@ public class CargaController {
     public ResponseEntity<Void> anular(@PathVariable Long id) {
         service.anular(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @RequirePlantaIncubacion
+    @GetMapping("/{id}/lotes")
+    public ResponseEntity<List<CargaLoteResumenDTO>> listarLotesPorCarga(@PathVariable Long id) {
+        return ResponseEntity.ok(service.listarLotesPorCarga(id));
     }
 }
