@@ -5,6 +5,7 @@ import java.util.List;
 import com.mercohuevos.auth.annotation.RequireAdmin;
 import com.mercohuevos.auth.annotation.RequireGranja;
 import com.mercohuevos.auth.annotation.RequireGranjaAdmin;
+import com.mercohuevos.auth.annotation.RequireLecturaCatalogos;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -35,7 +36,7 @@ public class LineaGeneticaController {
 	public ResponseEntity<LineaGeneticaDTO> obtenerPorId(@PathVariable Long id){
 		return ResponseEntity.ok(service.obtenerPorId(id));
 	}
-	@RequireGranjaAdmin
+	@RequireLecturaCatalogos
 	@GetMapping
 	public ResponseEntity<List<LineaGeneticaDTO>> listarGeneticas(){
 		return ResponseEntity.ok(service.listarTodos());

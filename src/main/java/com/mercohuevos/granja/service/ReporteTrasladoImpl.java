@@ -1,8 +1,8 @@
-// granja/service/ReporteTrasladoImpl.java
 package com.mercohuevos.granja.service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -13,6 +13,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import com.mercohuevos.common.dto.ConteoTipoHuevoEventDTO;
@@ -115,6 +117,18 @@ public class ReporteTrasladoImpl implements IReporteTrasladoService {
 		return construirResponseCompleto(actualizado);
 	}
 
+	@Override
+	public List<ReporteTrasladoResponseDTO> listarPorSemana(int semanasAtras) {
+		LocalDate hoy = LocalDate.now().minusWeeks(semanasAtras);
+		LocalDate lunes = hoy.with(DayOfWeek.MONDAY);
+		LocalDate domingo = hoy.with(DayOfWeek.SUNDAY);
+
+		Pageable primeros7 = PageRequest.of(0, 7);
+		return reporteRepo.findByFechaBetweenOrderByFechaDesc(lunes, domingo, primeros7)
+				.stream()
+				.map(this::construirResponseCompleto)
+				.toList();
+	}
 	@Override
 	public void anular(Long id) {
 		ReporteTraslado reporte = buscarReporte(id);

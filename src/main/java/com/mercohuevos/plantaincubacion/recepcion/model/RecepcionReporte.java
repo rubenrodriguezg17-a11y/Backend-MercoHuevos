@@ -39,6 +39,12 @@ public class RecepcionReporte {
     @Column(name = "fecha_reporte", nullable = false)
     private LocalDate fechaReporte;
 
+    @Column(name = "embandejado_confirmado", nullable = false)
+    private boolean embandejadoConfirmado = false;
+
+    @Column(name = "conteo_comercial_confirmado", nullable = false)
+    private boolean conteoComercialConfirmado = false;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "estado", nullable = false)
     private EstadoRecepcion estado = EstadoRecepcion.PENDIENTE;

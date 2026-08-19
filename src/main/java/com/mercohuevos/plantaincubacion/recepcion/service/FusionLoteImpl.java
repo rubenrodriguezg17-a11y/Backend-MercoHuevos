@@ -137,7 +137,7 @@ public class FusionLoteImpl implements IFusionLoteService {
     }
 
     private void validarRecepcionEditable(RecepcionReporte recepcion) {
-        if (recepcion.getEstado() == EstadoRecepcion.PROCESADO) {
+        if (recepcion.isEmbandejadoConfirmado()) {
             throw new IllegalStateException("No se pueden modificar fusiones: el embandejado de esta recepcion ya fue confirmado");
         }
     }

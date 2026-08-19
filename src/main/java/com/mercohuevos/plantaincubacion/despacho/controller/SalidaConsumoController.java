@@ -29,13 +29,13 @@ public class SalidaConsumoController {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.registrar(request));
     }
 
-    @RequireLecturaPlantaIncubacion @RequireAdmin
+    @RequirePlantaIncubacion
     @GetMapping
     public ResponseEntity<List<SalidaConsumoResponseDTO>> listarTodos() {
         return ResponseEntity.ok(service.listarTodos());
     }
 
-    @RequireLecturaPlantaIncubacion @RequireAdmin
+    @RequirePlantaIncubacion
     @GetMapping("/{id}")
     public ResponseEntity<SalidaConsumoResponseDTO> obtenerPorId(@PathVariable Long id) {
         return ResponseEntity.ok(service.obtenerPorId(id));

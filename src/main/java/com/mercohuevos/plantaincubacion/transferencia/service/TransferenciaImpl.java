@@ -195,10 +195,14 @@ public class TransferenciaImpl implements ITransferenciaService {
                 .map(d -> {
                     CargaLoteResumenDTO lote = cargaService.obtenerLote(d.getIdCargaLote());
                     return new DetalleTransferenciaLoteResponseDTO(
-                            d.getIdDetalleTransferencia(), d.getIdCargaLote(), lote.codigoFusion(),
-                            d.getMaquinaOrigen().getIdMaquina(), d.getMaquinaOrigen().getNumero(),
-                            d.getNacedoraDestino().getIdMaquina(), d.getNacedoraDestino().getNumero(),
-                            d.getHuevosTransferidos()
+                            d.getIdDetalleTransferencia(),
+                            d.getIdCargaLote(), lote.codigoFusion(),
+                            d.getMaquinaOrigen().getIdMaquina(),
+                            d.getMaquinaOrigen().getNumero(),
+                            d.getNacedoraDestino().getIdMaquina(),
+                            d.getNacedoraDestino().getNumero(),
+                            d.getHuevosTransferidos(),
+                            d.getLiberado()
                     );
                 })
                 .toList();

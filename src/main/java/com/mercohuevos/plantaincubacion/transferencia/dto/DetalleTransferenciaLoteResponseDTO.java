@@ -8,5 +8,6 @@ public record DetalleTransferenciaLoteResponseDTO(
         Integer numeroMaquinaOrigen,
         Long idNacedoraDestino,
         Integer numeroNacedoraDestino,
-        Integer huevosTransferidos
+        Integer huevosTransferidos,
+        Boolean liberado
 ) {}

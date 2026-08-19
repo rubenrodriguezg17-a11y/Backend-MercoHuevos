@@ -8,5 +8,6 @@ public record ConteoComercialResponseDTO(
         Integer totalGuia,
         Integer totalContado,
         Integer diferenciaTotal,
-        boolean conformeTotal
+        boolean conformeTotal,
+        List<String> avisosAjuste
 ) {}

@@ -29,13 +29,13 @@ public class DespachoPollitosController {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.registrar(idCarga, request));
     }
 
-    @RequirePlantaIncubacion @RequireAdmin
+    @RequirePlantaIncubacion
     @GetMapping
     public ResponseEntity<List<DespachoResponseDTO>> listarPorCarga(@PathVariable Long idCarga) {
         return ResponseEntity.ok(service.listarPorCarga(idCarga));
     }
 
-    @RequirePlantaIncubacion @RequireAdmin
+    @RequirePlantaIncubacion
     @GetMapping("/{idDespacho}")
     public ResponseEntity<DespachoResponseDTO> obtenerPorId(
             @PathVariable Long idCarga, @PathVariable Long idDespacho) {

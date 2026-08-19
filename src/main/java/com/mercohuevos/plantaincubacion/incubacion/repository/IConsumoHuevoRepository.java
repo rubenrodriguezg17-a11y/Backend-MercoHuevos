@@ -2,6 +2,7 @@ package com.mercohuevos.plantaincubacion.incubacion.repository;
 
 import java.util.List;
 
+import com.mercohuevos.plantaincubacion.enums.OrigenConsumo;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -19,4 +20,6 @@ public interface IConsumoHuevoRepository extends JpaRepository<ConsumoHuevo, Lon
 
 	@Query("SELECT COALESCE(SUM(c.cantidad - c.cantidadDescontada), 0) FROM ConsumoHuevo c")
 	Integer sumSaldoTotalDisponible();
+
+	List<ConsumoHuevo> findByFusionLoteAndOrigen(FusionLote fusionLote, OrigenConsumo origen);
 }

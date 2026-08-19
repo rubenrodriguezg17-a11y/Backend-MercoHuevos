@@ -6,8 +6,13 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import com.mercohuevos.plantaincubacion.enums.OrigenConsumo;
+import com.mercohuevos.plantaincubacion.incubacion.mapper.IConsumoHuevoMapper;
+import com.mercohuevos.plantaincubacion.incubacion.model.ConsumoHuevo;
+import com.mercohuevos.plantaincubacion.incubacion.repository.IConsumoHuevoRepository;
 import com.mercohuevos.plantaincubacion.incubacion.service.IConsumoHuevoService;
 import com.mercohuevos.plantaincubacion.recepcion.dto.*;
+import com.mercohuevos.plantaincubacion.recepcion.model.ConteoComercialLinea;
+import com.mercohuevos.plantaincubacion.recepcion.repository.IConteoComercialLineaRepository;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
@@ -41,9 +46,8 @@ public class RecepcionReporteImpl implements IRecepcionReporteService {
     private final IClasificacionTipoHuevoService clasificacionService;
     private final ApplicationEventPublisher eventPublisher;
     private final IConsumoHuevoService consumoHuevoService;
-
-    private static final int TOLERANCIA_DIFERENCIA_GUIA = 1000;
-
+    private final IConteoComercialLineaRepository conteoComercialRepo;
+    private final IConsumoHuevoRepository consumoHuevoRepo;
 
     @Override
     @Transactional
@@ -84,7 +88,7 @@ public class RecepcionReporteImpl implements IRecepcionReporteService {
     public RecepcionReporteDTO confirmarRecepcion(Long id) {
         RecepcionReporte recepcion = buscarRecepcion(id);
 
-        if (recepcion.getEstado() == EstadoRecepcion.RECIBIDO || recepcion.getEstado() == EstadoRecepcion.PROCESADO) {
+        if (recepcion.getEstado() != EstadoRecepcion.PENDIENTE) {
             throw new IllegalStateException("Esta recepcion ya fue confirmada anteriormente");
         }
 
@@ -105,6 +109,7 @@ public class RecepcionReporteImpl implements IRecepcionReporteService {
     }
 
     @Override
+    @Transactional
     public ConteoComercialResponseDTO compararConteoComercial(Long idRecepcion, ConteoComercialRequestDTO request) {
         RecepcionReporte recepcion = buscarRecepcion(idRecepcion);
 
@@ -131,11 +136,53 @@ public class RecepcionReporteImpl implements IRecepcionReporteService {
                     int guia = guiaPorLinea.getOrDefault(idLinea, 0);
                     int contado = contadoPorLinea.getOrDefault(idLinea, 0);
                     int diferencia = contado - guia;
-                    boolean conforme = Math.abs(diferencia) <= TOLERANCIA_DIFERENCIA_GUIA;
-                    return new ComparacionLineaGeneticaDTO(
+                    boolean conforme = diferencia == 0;                    return new ComparacionLineaGeneticaDTO(
                             idLinea, nombrePorLinea.get(idLinea), guia, contado, diferencia, conforme);
                 })
                 .toList();
+
+        Map<Long, List<FusionLote>> fusionesPorLinea = fusionLoteRepo.findByRecepcion(recepcion).stream()
+                .collect(Collectors.groupingBy(FusionLote::getIdLineaGenetica));
+
+        List<String> avisosAjuste = new java.util.ArrayList<>();
+
+        conteoComercialRepo.deleteByRecepcion(recepcion);
+        for (ComparacionLineaGeneticaDTO c : comparacion) {
+            ConteoComercialLinea registro = new ConteoComercialLinea();
+            registro.setRecepcion(recepcion);
+            registro.setIdLineaGenetica(c.idLineaGenetica());
+            registro.setLineaGeneticaNombre(c.nombreLinea());
+            registro.setCantidadGuia(c.cantidadGuia());
+            registro.setCantidadContada(c.cantidadContada());
+            registro.setDiferencia(c.diferencia());
+            registro.setConforme(c.conforme());
+            conteoComercialRepo.save(registro);
+
+            if (c.diferencia() != 0) {
+                List<FusionLote> fusionesLinea = fusionesPorLinea.getOrDefault(c.idLineaGenetica(), List.of());
+                List<ConsumoHuevo> filasComercial = fusionesLinea.stream()
+                        .flatMap(f -> consumoHuevoRepo.findByFusionLoteAndOrigen(f, OrigenConsumo.COMERCIAL_GRANJA).stream())
+                        .toList();
+
+                if (!filasComercial.isEmpty()) {
+                    ConsumoHuevo filaBase = filasComercial.get(0);
+                    int nuevaCantidad = filaBase.getCantidad() + c.diferencia();
+
+                    if (nuevaCantidad < filaBase.getCantidadDescontada()) {
+                        avisosAjuste.add("Linea " + c.nombreLinea() +
+                                ": el conteo real es menor a lo ya consumido de ese saldo. Se dejo en el minimo posible (" +
+                                filaBase.getCantidadDescontada() + "), revisar manualmente.");
+                        nuevaCantidad = filaBase.getCantidadDescontada();
+                    }
+
+                    filaBase.setCantidad(nuevaCantidad);
+                    filaBase.setObservacion(
+                            (filaBase.getObservacion() != null ? filaBase.getObservacion() + " | " : "") +
+                                    "Corregido por conteo fisico: guia " + c.cantidadGuia() + " -> contado " + c.cantidadContada());
+                    consumoHuevoRepo.save(filaBase);
+                }
+            }
+        }
 
         int totalGuia = comparacion.stream().mapToInt(ComparacionLineaGeneticaDTO::cantidadGuia).sum();
         int totalContado = comparacion.stream().mapToInt(ComparacionLineaGeneticaDTO::cantidadContada).sum();
@@ -143,7 +190,34 @@ public class RecepcionReporteImpl implements IRecepcionReporteService {
 
         return new ConteoComercialResponseDTO(
                 idRecepcion, comparacion, totalGuia, totalContado,
-                diferenciaTotal, Math.abs(diferenciaTotal) <= TOLERANCIA_DIFERENCIA_GUIA);
+                diferenciaTotal, diferenciaTotal == 0,
+                avisosAjuste);
+    }
+
+    @Override
+    @Transactional
+    public RecepcionReporteDTO confirmarConteoComercial(Long idRecepcion) {
+        RecepcionReporte recepcion = buscarRecepcion(idRecepcion);
+
+        if (recepcion.getEstado() == EstadoRecepcion.PENDIENTE) {
+            throw new IllegalStateException("La recepcion aun no fue confirmada como recibida");
+        }
+        if (recepcion.isConteoComercialConfirmado()) {
+            throw new IllegalStateException("El conteo comercial ya fue confirmado, no se puede volver a confirmar");
+        }
+
+        List<ConteoComercialLinea> conteo = conteoComercialRepo.findByRecepcion(recepcion);
+        if (conteo.isEmpty()) {
+            throw new IllegalStateException("No se puede confirmar: falta registrar el conteo comercial de esta recepcion.");
+        }
+
+        recepcion.setConteoComercialConfirmado(true);
+        if (recepcion.isEmbandejadoConfirmado()) {
+            recepcion.setEstado(EstadoRecepcion.PROCESADO);
+        }
+        recepcionRepo.save(recepcion);
+
+        return construirDTOCompleto(recepcion);
     }
     private LoteOrigenReporte construirLoteOrigen(DetalleLoteEventDTO detalle, RecepcionReporte recepcion) {
         int totalIncubable = 0;
@@ -221,6 +295,9 @@ public class RecepcionReporteImpl implements IRecepcionReporteService {
             recepcion.getIdRecepcion(), recepcion.getIdReporteGranja(),
             recepcion.getNumeroReporteGranja(), recepcion.getFechaReporte(),
             recepcion.getEstado().name(),
+
+                recepcion.isEmbandejadoConfirmado(),
+                recepcion.isConteoComercialConfirmado(),
             grandIncubable, grandComercial, grandIncubable + grandComercial,
             lineasDTO
         );

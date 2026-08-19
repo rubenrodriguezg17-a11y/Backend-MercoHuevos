@@ -5,14 +5,7 @@ import java.util.List;
 import com.mercohuevos.auth.annotation.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.mercohuevos.granja.dto.ReporteTrasladoRequestDTO;
 import com.mercohuevos.granja.dto.ReporteTrasladoResponseDTO;
@@ -62,5 +55,11 @@ public class ReporteTrasladoController {
     public ResponseEntity<Void> anular(@PathVariable Long id) {
         reporteService.anular(id);
         return ResponseEntity.noContent().build();
+    }
+    @RequireLecturaTraslado
+    @GetMapping("/semana")
+    public ResponseEntity<List<ReporteTrasladoResponseDTO>> listarPorSemana(
+            @RequestParam(defaultValue = "0") int semanasAtras) {
+        return ResponseEntity.ok(reporteService.listarPorSemana(semanasAtras));
     }
 }

@@ -46,4 +46,5 @@ public class Usuario {
 
     @Column(name = "bloqueado", nullable = false)
     private boolean bloqueado = false;
+
 }

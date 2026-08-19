@@ -9,6 +9,8 @@ public record RecepcionReporteDTO(
     String numeroReporteGranja,
     LocalDate fechaReporte,
     String estado,
+    boolean embandejadoConfirmado,
+    boolean conteoComercialConfirmado,
     Integer grandTotalHuevosIncubables,
     Integer grandTotalHuevosComerciales,
     Integer grandTotalHuevos,

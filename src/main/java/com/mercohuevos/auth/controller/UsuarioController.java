@@ -1,6 +1,7 @@
 package com.mercohuevos.auth.controller;
 
 import com.mercohuevos.auth.annotation.RequireAdmin;
+import com.mercohuevos.auth.dto.EditarUsuarioRequestDTO;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import com.mercohuevos.auth.dto.CrearUsuarioRequestDTO;
@@ -40,5 +41,17 @@ public class UsuarioController {
     public UsuarioDTO me(Authentication authentication) {
         String dni = authentication.getName();
         return service.obtenerPorDni(dni);
+    }
+
+    @PutMapping("/{id}")
+    @RequireAdmin
+    public UsuarioDTO editar(@PathVariable Long id, @Valid @RequestBody EditarUsuarioRequestDTO request) {
+        return service.editUsuario(id, request);
+    }
+
+    @PatchMapping("/{id}/desactivar")
+    @RequireAdmin
+    public UsuarioDTO desactivar(@PathVariable Long id) {
+        return service.desactivarUsuario(id);
     }
 }

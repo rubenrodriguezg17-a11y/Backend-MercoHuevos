@@ -46,4 +46,9 @@ public class RecepcionReporteController {
             @Valid @RequestBody ConteoComercialRequestDTO request) {
         return ResponseEntity.ok(service.compararConteoComercial(id, request));
     }
+
+    @PatchMapping("/{id}/confirmar-conteo-comercial")
+    public RecepcionReporteDTO confirmarConteoComercial(@PathVariable Long id) {
+        return service.confirmarConteoComercial(id);
+    }
 }

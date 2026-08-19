@@ -10,5 +10,6 @@ public interface IReporteTrasladoService {
     ReporteTrasladoResponseDTO obtenerPorId(Long id);
     List<ReporteTrasladoResponseDTO> listarTodos();
     ReporteTrasladoResponseDTO editar(Long id, ReporteTrasladoRequestDTO request);
+    List<ReporteTrasladoResponseDTO> listarPorSemana(int semanasAtras);
     void anular(Long id);
 }

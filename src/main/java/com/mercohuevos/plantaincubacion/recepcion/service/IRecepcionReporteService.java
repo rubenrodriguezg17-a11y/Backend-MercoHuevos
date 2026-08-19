@@ -13,4 +13,5 @@ public interface IRecepcionReporteService {
     List<RecepcionReporteDTO>   listarTodos();
     RecepcionReporteDTO         confirmarRecepcion(Long id);
     ConteoComercialResponseDTO  compararConteoComercial(Long idRecepcion, ConteoComercialRequestDTO request);
+    RecepcionReporteDTO         confirmarConteoComercial(Long idRecepcion);
 }

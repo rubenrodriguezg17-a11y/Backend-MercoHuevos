@@ -52,8 +52,8 @@ public class EmbandejadoGeneralImpl implements IEmbandejadoGeneralService {
         if (recepcion.getEstado() == EstadoRecepcion.PENDIENTE) {
             throw new IllegalStateException("La recepcion aun no fue confirmada como recibida");
         }
-        if (recepcion.getEstado() == EstadoRecepcion.PROCESADO) {
-            throw new IllegalStateException("Esta recepcion ya fue procesada por completo, no se puede editar");
+        if (recepcion.isEmbandejadoConfirmado()) {
+            throw new IllegalStateException("El embandejado de esta recepcion ya fue confirmado, no se puede editar");
         }
 
         EmbandejadoGeneral embandejado = embandejadoRepo.findByRecepcion(recepcion).orElseGet(() -> {
@@ -191,7 +191,10 @@ public class EmbandejadoGeneralImpl implements IEmbandejadoGeneralService {
                         detalle.getSeleccionDescartada(), embandejado.getFechaEmbandejado(),
                         "Descarte en selección - " + detalle.getFusionLote().getCodigoFusion()));
 
-        recepcion.setEstado(EstadoRecepcion.PROCESADO);
+        recepcion.setEmbandejadoConfirmado(true);
+        if(recepcion.isConteoComercialConfirmado()) {
+            recepcion.setEstado(EstadoRecepcion.PROCESADO);
+        }
         recepcionRepo.save(recepcion);
 
         return construirResponse(embandejado);

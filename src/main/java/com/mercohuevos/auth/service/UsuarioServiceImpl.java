@@ -1,6 +1,8 @@
 package com.mercohuevos.auth.service;
 
 import java.util.List;
+
+import com.mercohuevos.auth.dto.EditarUsuarioRequestDTO;
 import org.springframework.stereotype.Service;
 
 import com.mercohuevos.auth.dto.CrearUsuarioRequestDTO;
@@ -50,6 +52,26 @@ public class UsuarioServiceImpl implements IUsuarioService {
         Usuario usuario = repository.findByDni(dni)
                 .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado: " + dni));
         return toDTO(usuario);
+    }
+
+    @Override
+    public UsuarioDTO editUsuario(Long id, EditarUsuarioRequestDTO request) {
+        Usuario user = repository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado" + id));
+
+        user.setNombreCompleto(request.nombreCompleto());
+        user.setRol(request.rol());
+        user.setArea(request.area());
+        return toDTO(repository.save(user));
+    }
+
+    @Override
+    public UsuarioDTO desactivarUsuario(Long id) {
+        Usuario user = repository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado" + id));
+
+        user.setActivo(false);
+        return toDTO(repository.save(user));
     }
 
     private UsuarioDTO toDTO(Usuario u) {
