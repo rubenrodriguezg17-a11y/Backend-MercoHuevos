@@ -2,15 +2,15 @@ package com.mercohuevos.plantaincubacion.recepcion.controller;
 
 import java.util.List;
 
-import com.mercohuevos.auth.annotation.RequireEmbandejado;
 import com.mercohuevos.auth.annotation.RequireEscrituraEmbandejado;
-import com.mercohuevos.auth.annotation.RequireLogistica;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import com.mercohuevos.plantaincubacion.recepcion.dto.EditarFusionLoteRequestDTO;
 import com.mercohuevos.plantaincubacion.recepcion.dto.FusionLoteDTO;
+import com.mercohuevos.plantaincubacion.recepcion.dto.FusionLotePlantillaDTO;
 import com.mercohuevos.plantaincubacion.recepcion.dto.FusionLoteRequestDTO;
+import com.mercohuevos.plantaincubacion.recepcion.dto.PlantillaEstadoDTO;
 import com.mercohuevos.plantaincubacion.recepcion.service.IFusionLoteService;
 
 import jakarta.validation.Valid;
@@ -59,5 +59,20 @@ public class FusionLoteController {
     public ResponseEntity<FusionLoteDTO> obtenerPorId(@PathVariable Long id) {
         return ResponseEntity.ok(fusionLoteService.obtenerPorId(id));
     }
-    
+
+    @GetMapping("/plantillas/estado")
+    public ResponseEntity<List<PlantillaEstadoDTO>> obtenerEstadoPlantillas(@RequestParam Long idRecepcion) {
+        return ResponseEntity.ok(fusionLoteService.obtenerEstadoPlantillas(idRecepcion));
+    }
+
+    @GetMapping("/plantillas")
+    public ResponseEntity<List<FusionLotePlantillaDTO>> listarPlantillas() {
+        return ResponseEntity.ok(fusionLoteService.listarPlantillas());
+    }
+
+    @DeleteMapping("/plantillas/{idPlantilla}")
+    public ResponseEntity<Void> desactivarPlantilla(@PathVariable Long idPlantilla) {
+        fusionLoteService.desactivarPlantilla(idPlantilla);
+        return ResponseEntity.noContent().build();
+    }
 }

@@ -5,8 +5,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import java.util.ArrayList;
+import java.util.Objects;
+import java.util.Set;
+import com.mercohuevos.plantaincubacion.shared.model.FusionLotePlantilla;
+import com.mercohuevos.plantaincubacion.recepcion.model.FusionLotePlantillaDetalle;
+import com.mercohuevos.plantaincubacion.recepcion.repository.IFusionLotePlantillaDetalleRepository;
+import com.mercohuevos.plantaincubacion.shared.repository.IFusionLotePlantillaRepository;
+
+
 import com.mercohuevos.plantaincubacion.enums.OrigenConsumo;
-import com.mercohuevos.plantaincubacion.incubacion.mapper.IConsumoHuevoMapper;
 import com.mercohuevos.plantaincubacion.incubacion.model.ConsumoHuevo;
 import com.mercohuevos.plantaincubacion.incubacion.repository.IConsumoHuevoRepository;
 import com.mercohuevos.plantaincubacion.incubacion.service.IConsumoHuevoService;
@@ -43,11 +51,14 @@ public class RecepcionReporteImpl implements IRecepcionReporteService {
     private final ILoteOrigenReporteRepository loteOrigenRepo;
     private final IFusionLoteRepository fusionLoteRepo;
     private final IFusionLoteDetalleRepository fusionDetalleRepo;
+    private final IFusionLotePlantillaRepository plantillaRepo;
+    private final IFusionLotePlantillaDetalleRepository plantillaDetalleRepo;
     private final IClasificacionTipoHuevoService clasificacionService;
     private final ApplicationEventPublisher eventPublisher;
     private final IConsumoHuevoService consumoHuevoService;
     private final IConteoComercialLineaRepository conteoComercialRepo;
     private final IConsumoHuevoRepository consumoHuevoRepo;
+
 
     @Override
     @Transactional
@@ -71,6 +82,7 @@ public class RecepcionReporteImpl implements IRecepcionReporteService {
         List<LoteOrigenReporte> lotesGuardados = loteOrigenRepo.saveAll(lotesOrigen);
 
         lotesGuardados.forEach(this::autogenerarFusionDeUnLote);
+        aplicarPlantillasRecurrentes(guardada, lotesGuardados);
     }
 
     @Override
@@ -85,7 +97,7 @@ public class RecepcionReporteImpl implements IRecepcionReporteService {
 
     @Override
     @Transactional
-    public RecepcionReporteDTO confirmarRecepcion(Long id) {
+    public RecepcionReporteDTO confirmarRecepcion(Long id, ConfirmarRecepcionRequestDTO request) {
         RecepcionReporte recepcion = buscarRecepcion(id);
 
         if (recepcion.getEstado() != EstadoRecepcion.PENDIENTE) {
@@ -100,14 +112,16 @@ public class RecepcionReporteImpl implements IRecepcionReporteService {
         fusiones.forEach(f -> consumoHuevoService.registrarIngreso(
                 f, OrigenConsumo.COMERCIAL_GRANJA, f.getHuevosComercialGuia(),
                 guardada.getFechaReporte(), "Ingreso comercial de granja - " + f.getCodigoFusion()));
-        LocalTime horaLlegada = LocalTime.now();
+
+        LocalTime horaLlegada = (request != null && request.horaLlegada() != null)
+                ? request.horaLlegada()
+                : LocalTime.now();
 
         eventPublisher.publishEvent(new ReporteRecibidoConfirmadoEvent(
                 new ReporteRecibidoConfirmadoDTO(guardada.getIdReporteGranja(), horaLlegada)));
 
         return construirDTOCompleto(guardada);
     }
-
     @Override
     @Transactional
     public ConteoComercialResponseDTO compararConteoComercial(Long idRecepcion, ConteoComercialRequestDTO request) {
@@ -307,4 +321,65 @@ public class RecepcionReporteImpl implements IRecepcionReporteService {
         return recepcionRepo.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Recepcion no encontrada: " + id));
     }
+
+    private void aplicarPlantillasRecurrentes(RecepcionReporte recepcion, List<LoteOrigenReporte> lotesHoy) {
+        Set<Long> idsLineaHoy = lotesHoy.stream()
+                .map(LoteOrigenReporte::getIdLineaGenetica).collect(java.util.stream.Collectors.toSet());
+        if (idsLineaHoy.isEmpty()) return;
+
+        List<FusionLotePlantilla> plantillas = plantillaRepo
+                .findByIdLineaGeneticaInAndActivaTrue(new ArrayList<>(idsLineaHoy));
+        if (plantillas.isEmpty()) return;
+
+        Map<Long, LoteOrigenReporte> lotesPorIdLoteGranja = lotesHoy.stream()
+                .collect(java.util.stream.Collectors.toMap(LoteOrigenReporte::getIdLoteGranja, l -> l, (a, b) -> a));
+
+        for (FusionLotePlantilla plantilla : plantillas) {
+            List<FusionLotePlantillaDetalle> detalles = plantillaDetalleRepo.findByPlantilla(plantilla);
+
+            List<LoteOrigenReporte> lotesCoincidentes = detalles.stream()
+                    .map(d -> lotesPorIdLoteGranja.get(d.getIdLoteGranja()))
+                    .filter(Objects::nonNull)
+                    .toList();
+
+            if (lotesCoincidentes.size() < 2) {
+                continue; // no llegaron suficientes lotes hoy para fusionar automaticamente
+            }
+
+            fusionarLotesDePlantilla(recepcion, plantilla, lotesCoincidentes);
+        }
+    }
+
+    private void fusionarLotesDePlantilla(RecepcionReporte recepcion, FusionLotePlantilla plantilla, List<LoteOrigenReporte> lotesCoincidentes) {
+        List<FusionLote> fusionesOrigen = lotesCoincidentes.stream()
+                .map(lote -> fusionLoteRepo
+                        .findByRecepcionAndIdLineaGeneticaAndCodigoFusion(recepcion, plantilla.getIdLineaGenetica(), lote.getCodigoLoteGranja())
+                        .orElse(null))
+                .filter(Objects::nonNull)
+                .toList();
+
+        if (fusionesOrigen.size() < 2) return;
+
+        FusionLote nueva = new FusionLote();
+        nueva.setRecepcion(recepcion);
+        nueva.setIdLineaGenetica(plantilla.getIdLineaGenetica());
+        nueva.setLineaGeneticaNombre(plantilla.getLineaGeneticaNombre());
+        nueva.setCodigoFusion(plantilla.getCodigoFusion());
+        nueva.setActiva(true);
+
+        int totalIncubable = fusionesOrigen.stream().mapToInt(FusionLote::getHuevosIncubablesGuia).sum();
+        int totalComercial = fusionesOrigen.stream().mapToInt(FusionLote::getHuevosComercialGuia).sum();
+        nueva.setHuevosIncubablesGuia(totalIncubable);
+        nueva.setHuevosComercialGuia(totalComercial);
+
+        FusionLote guardada = fusionLoteRepo.save(nueva);
+
+        List<FusionLoteDetalle> detallesOrigen = fusionDetalleRepo.findByFusionLoteIn(fusionesOrigen);
+        detallesOrigen.forEach(d -> d.setFusionLote(guardada));
+        fusionDetalleRepo.saveAll(detallesOrigen);
+
+        fusionesOrigen.forEach(f -> f.setActiva(false));
+        fusionLoteRepo.saveAll(fusionesOrigen);
+    }
+
 }
