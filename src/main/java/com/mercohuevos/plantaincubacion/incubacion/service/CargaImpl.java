@@ -437,6 +437,7 @@ public class CargaImpl implements ICargaService {
 
         return new CargaDetalleResponseDTO(
                 carga.getIdCarga(),
+                carga.getIdLineaGenetica(),
                 carga.getLineaGeneticaNombre(),
                 lotesDTO,
                 carga.getCantidadInicial(),

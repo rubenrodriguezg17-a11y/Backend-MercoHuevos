@@ -5,12 +5,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.mercohuevos.plantaincubacion.nacimiento.dto.ClasificacionDisponibleDTO;
 import com.mercohuevos.plantaincubacion.nacimiento.dto.NacimientoResponseDTO;
 import com.mercohuevos.plantaincubacion.nacimiento.dto.RegistrarNacimientoRequestDTO;
 import com.mercohuevos.plantaincubacion.nacimiento.service.INacimientoService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/plantaincubacion/cargas/{idCarga}/nacimiento")
@@ -30,5 +33,12 @@ public class NacimientoController {
     @GetMapping
     public ResponseEntity<NacimientoResponseDTO> obtenerPorCarga(@PathVariable Long idCarga) {
         return ResponseEntity.ok(service.obtenerPorCarga(idCarga));
+    }
+
+    @RequireLecturaVacunacion
+    @GetMapping("/{idDetalleNacimiento}/clasificacion")
+    public ResponseEntity<ClasificacionDisponibleDTO> obtenerClasificacionPorDetalle(
+            @PathVariable Long idCarga, @PathVariable Long idDetalleNacimiento) {
+        return ResponseEntity.ok(service.obtenerClasificacionPorDetalle(idDetalleNacimiento));
     }
 }

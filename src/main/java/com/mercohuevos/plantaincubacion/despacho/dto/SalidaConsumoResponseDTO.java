@@ -9,6 +9,7 @@ public record SalidaConsumoResponseDTO(
         Integer cantidad,
         TipoSalidaConsumo tipoSalida,
         String destino,
+        String observacion,
         Integer saldoTotalRestante,
         Boolean anulado
 ) {}

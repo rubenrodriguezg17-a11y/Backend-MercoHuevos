@@ -9,10 +9,11 @@ import com.mercohuevos.plantaincubacion.incubacion.dto.ConsumoHuevoResumenDTO;
 import com.mercohuevos.plantaincubacion.shared.model.FusionLote;
 
 public interface IConsumoHuevoService {
-    List<ConsumoHuevoDTO> listarTodos();
-    List<ConsumoHuevoDTO> listarPorFusionLote(Long idFusionLote);
-    ConsumoHuevoResumenDTO obtenerResumenPorFusionLote(Long idFusionLote);
-    int descontarSaldo(int cantidad);
-    void revertirSaldo(int cantidad);
-    void registrarIngreso(FusionLote fusionLote, OrigenConsumo origen, Integer cantidad, LocalDate fecha, String observacion);
+    List<ConsumoHuevoDTO>           listarTodos();
+    List<ConsumoHuevoDTO>           listarPorFusionLote(Long idFusionLote);
+    ConsumoHuevoResumenDTO          obtenerResumenPorFusionLote(Long idFusionLote);
+    int                             descontarSaldo(int cantidad);
+    void                            revertirSaldo(int cantidad);
+    void                            registrarIngreso(FusionLote fusionLote, OrigenConsumo origen, Integer cantidad, LocalDate fecha, String observacion);
+    int                             consultarSaldoDisponible();
 }

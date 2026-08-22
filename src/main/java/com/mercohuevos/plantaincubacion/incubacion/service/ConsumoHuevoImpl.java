@@ -92,6 +92,11 @@ public class ConsumoHuevoImpl implements IConsumoHuevoService {
     }
 
     @Override
+    public int consultarSaldoDisponible() {
+        return repository.sumSaldoTotalDisponible();
+    }
+
+    @Override
     @Transactional
     public void revertirSaldo(int cantidad) {
         List<ConsumoHuevo> registrosConDescuento = repository.findConDescuentoOrdenadoPorFechaDesc();

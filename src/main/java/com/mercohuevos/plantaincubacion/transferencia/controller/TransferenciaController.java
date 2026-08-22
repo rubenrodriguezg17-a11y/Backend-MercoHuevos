@@ -45,4 +45,17 @@ public class TransferenciaController {
     public ResponseEntity<List<NacedoraDisponibleDTO>> listarNacedorasDisponibles() {
         return ResponseEntity.ok(service.listarNacedorasDisponibles());
     }
+
+    @RequireLecturaPlanta
+    @GetMapping("/api/plantaincubacion/transferencia/detalle/{idDetalleTransferencia}")
+    public ResponseEntity<DetalleTransferenciaInfoDTO> obtenerDetallePorId(@PathVariable Long idDetalleTransferencia) {
+        return ResponseEntity.ok(service.obtenerDetallePorId(idDetalleTransferencia));
+    }
+
+    @RequirePlantaIncubacion
+    @PatchMapping("/api/plantaincubacion/transferencia/detalle/{idDetalleTransferencia}/liberar")
+    public ResponseEntity<Void> liberarDetalle(@PathVariable Long idDetalleTransferencia) {
+        service.liberarDetalle(idDetalleTransferencia);
+        return ResponseEntity.noContent().build();
+    }
 }

@@ -5,6 +5,7 @@ import java.util.List;
 
 public record CargaDetalleResponseDTO(
         Long idCarga,
+        Long idLineaGenetica,
         String lineaGeneticaNombre,
         List<LoteFusionCargaResponseDTO> lotes,
         Integer cantidadInicial,

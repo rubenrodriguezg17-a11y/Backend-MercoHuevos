@@ -39,4 +39,11 @@ public class ConsumoHuevoController {
     public ResponseEntity<ConsumoHuevoResumenDTO> obtenerResumen(@PathVariable Long idFusionLote) {
         return ResponseEntity.ok(service.obtenerResumenPorFusionLote(idFusionLote));
     }
+
+    @RequireLecturaEmbandejado
+    @GetMapping("/saldo-actual")
+    public ResponseEntity<Integer> consultarSaldoDisponible() {
+        return ResponseEntity.ok(service.consultarSaldoDisponible());
+    }
+
 }

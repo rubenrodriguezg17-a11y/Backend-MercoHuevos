@@ -9,4 +9,5 @@ public interface IDespachoPollitosService {
     DespachoResponseDTO         registrar(Long idCarga, RegistrarDespachoRequestDTO request);
     List<DespachoResponseDTO>   listarPorCarga(Long idCarga);
     DespachoResponseDTO         obtenerPorId(Long idCarga, Long idDespacho);
+    List<DespachoResponseDTO>   getAllDespachosPollitos();
 }

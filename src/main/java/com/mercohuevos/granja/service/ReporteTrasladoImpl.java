@@ -12,9 +12,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import com.mercohuevos.common.dto.PaginaResponseDTO;
+import com.mercohuevos.granja.specification.ReporteTrasladoSpecifications;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import com.mercohuevos.common.dto.ConteoTipoHuevoEventDTO;
@@ -80,10 +85,18 @@ public class ReporteTrasladoImpl implements IReporteTrasladoService {
 	}
 
 	@Override
-	public List<ReporteTrasladoResponseDTO> listarTodos() {
-		return reporteRepo.findAll().stream().map(this::construirResponseCompleto).toList();
-	}
+	public PaginaResponseDTO<ReporteTrasladoResponseDTO> listarPaginado(int page, int size,
+																		ReporteTrasladoFiltroDTO filtro) {
+		Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "fecha"));
 
+		Specification<ReporteTraslado> spec = ReporteTrasladoSpecifications.construir(
+				filtro.estado(), filtro.fechaInicio(), filtro.fechaFin(), filtro.chofer());
+
+		Page<ReporteTrasladoResponseDTO> resultado = reporteRepo.findAll(spec, pageable)
+				.map(this::construirResponseCompleto);
+
+		return PaginaResponseDTO.from(resultado);
+	}
 	@Override
 	public ReporteTrasladoResponseDTO editar(Long id, ReporteTrasladoRequestDTO request) {
 		ReporteTraslado reporte = buscarReporte(id);

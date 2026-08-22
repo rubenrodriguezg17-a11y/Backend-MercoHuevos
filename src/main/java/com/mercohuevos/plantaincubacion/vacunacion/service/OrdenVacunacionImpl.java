@@ -1,5 +1,6 @@
 package com.mercohuevos.plantaincubacion.vacunacion.service;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -115,6 +116,14 @@ public class OrdenVacunacionImpl implements IOrdenVacunacionService {
     @Override
     public List<OrdenVacunacionResponseDTO> listarPorCarga(Long idCarga) {
         return ordenRepo.findByIdCargaOrderByFechaVacunacionAsc(idCarga).stream()
+                .map(this::construirResponse)
+                .toList();
+    }
+
+    @Override
+    public List<OrdenVacunacionResponseDTO> getAllOrderVacunacion() {
+        return ordenRepo.findAll().stream()
+                .sorted(Comparator.comparing(OrdenVacunacion::getFechaVacunacion).reversed())
                 .map(this::construirResponse)
                 .toList();
     }

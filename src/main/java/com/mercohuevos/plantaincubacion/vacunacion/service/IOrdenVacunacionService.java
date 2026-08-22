@@ -7,8 +7,9 @@ import com.mercohuevos.plantaincubacion.vacunacion.dto.OrdenVacunacionResponseDT
 import com.mercohuevos.plantaincubacion.vacunacion.dto.RegistrarOrdenVacunacionRequestDTO;
 
 public interface IOrdenVacunacionService {
-    OrdenVacunacionResponseDTO registrar(Long idCarga, RegistrarOrdenVacunacionRequestDTO request);
-    List<OrdenVacunacionResponseDTO> listarPorCarga(Long idCarga);
-    DetalleVacunacionInfoDTO obtenerDetallePorId(Long idDetalleVacunacion);
-    List<DetalleVacunacionInfoDTO> listarDetallesPorCarga(Long idCarga);
+    OrdenVacunacionResponseDTO              registrar(Long idCarga, RegistrarOrdenVacunacionRequestDTO request);
+    List<OrdenVacunacionResponseDTO>        listarPorCarga(Long idCarga);
+    List<OrdenVacunacionResponseDTO>        getAllOrderVacunacion();
+    DetalleVacunacionInfoDTO                obtenerDetallePorId(Long idDetalleVacunacion);
+    List<DetalleVacunacionInfoDTO>          listarDetallesPorCarga(Long idCarga);
 }

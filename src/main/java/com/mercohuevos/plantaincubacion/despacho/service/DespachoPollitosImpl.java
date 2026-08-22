@@ -1,5 +1,6 @@
 package com.mercohuevos.plantaincubacion.despacho.service;
 
+import java.util.Comparator;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -100,6 +101,14 @@ public class DespachoPollitosImpl implements IDespachoPollitosService {
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Despacho no encontrado: " + idDespacho + " para la carga " + idCarga));
         return construirResponse(despacho);
+    }
+
+    @Override
+    public List<DespachoResponseDTO> getAllDespachosPollitos() {
+        return despachoRepo.findAll().stream()
+                .sorted(Comparator.comparing(DespachoPollitos::getFechaDespacho).reversed())
+                .map(this::construirResponse)
+                .toList();
     }
 
     @Override

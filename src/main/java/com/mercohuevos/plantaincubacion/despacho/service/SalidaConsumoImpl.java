@@ -40,7 +40,7 @@ public class SalidaConsumoImpl implements ISalidaConsumoService {
 
     @Override
     public List<SalidaConsumoResponseDTO> listarTodos() {
-        return salidaRepo.findAllByOrderByFechaDesc().stream()
+        return salidaRepo.findAllByOrderByFechaDescIdSalidaDesc().stream()
                 .map(this::toDTO)
                 .toList();
     }
@@ -70,6 +70,7 @@ public class SalidaConsumoImpl implements ISalidaConsumoService {
     private SalidaConsumoResponseDTO toDTO(SalidaConsumo s) {
         return new SalidaConsumoResponseDTO(
                 s.getIdSalida(), s.getFecha(), s.getCantidad(),
-                s.getTipoSalida(), s.getDestino(), s.getSaldoRestante(), s.getAnulado());
+                s.getTipoSalida(), s.getDestino(), s.getObservacion(),
+                s.getSaldoRestante(), s.getAnulado());
     }
 }

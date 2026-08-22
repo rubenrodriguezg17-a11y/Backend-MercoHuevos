@@ -1,8 +1,13 @@
 package com.mercohuevos.granja.controller;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import com.mercohuevos.auth.annotation.*;
+import com.mercohuevos.common.dto.PaginaResponseDTO;
+import com.mercohuevos.granja.dto.ReporteTrasladoFiltroDTO;
+import com.mercohuevos.granja.enums.EstadoReporte;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -39,9 +44,17 @@ public class ReporteTrasladoController {
     }
 
     @RequireLecturaTraslado
-    @GetMapping
-    public ResponseEntity<List<ReporteTrasladoResponseDTO>> listarTodos() {
-        return ResponseEntity.ok(reporteService.listarTodos());
+    @GetMapping("/paginado")
+    public ResponseEntity<PaginaResponseDTO<ReporteTrasladoResponseDTO>> listarPaginado(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) EstadoReporte estado,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin,
+            @RequestParam(required = false) String chofer) {
+
+        ReporteTrasladoFiltroDTO filtro = new ReporteTrasladoFiltroDTO(estado, fechaInicio, fechaFin, chofer);
+        return ResponseEntity.ok(reporteService.listarPaginado(page, size, filtro));
     }
 
     @RequireGranja

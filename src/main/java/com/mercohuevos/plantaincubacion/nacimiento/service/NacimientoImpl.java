@@ -2,6 +2,7 @@ package com.mercohuevos.plantaincubacion.nacimiento.service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Comparator;
 import java.util.List;
 
 import com.mercohuevos.plantaincubacion.nacimiento.repository.IDetalleNacimientoLoteRepository;
@@ -120,6 +121,14 @@ public class NacimientoImpl implements INacimientoService {
                 c.getHembrasPrimera(),
                 c.getHembrasSegunda()
         );
+    }
+
+    @Override
+    public List<NacimientoResponseDTO> getAllNacimientos() {
+        return nacimientoRepo.findAll().stream()
+                .sorted(Comparator.comparing(Nacimiento::getFechaNacimiento).reversed())
+                .map(this::construirResponse)
+                .toList();
     }
 
     private NacimientoResponseDTO construirResponse(Nacimiento nacimiento) {
